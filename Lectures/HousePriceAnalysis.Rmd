@@ -1,0 +1,122 @@
+---
+title: "房价数据分析"
+author: "Ryan"
+date: "August 9, 2015"
+output: 
+  word_document: 
+    highlight: espresso
+---
+
+# 房价数据分析
+## 1 数据
+本案例数据来源于[Zillow.com](http://zillow.com)，数据收集于2015年8月8日，包含了30个房屋的位置、价格、面积、卧室数量和洗手间数量的信息。    
+
+前5个房价信息如下所示:
+```{r}
+data <- read.csv("HousePriceData.csv", stringsAsFactors = F)
+head(data)
+```
+
+## 2 变量小结
+### 2.1 房屋价格
+房屋价格分布
+```{r}
+summary(data$Price)
+```
+
+房屋价格分布的盒子图
+```{r}
+boxplot(data$Price, horizontal = T)
+```
+
+房屋价格分布的直方图
+```{r}
+hist(data$Price, border = 0, col = "blue")
+```
+
+## 2.2 房屋面积分布
+房屋面积分布小结
+```{r}
+summary(data$Sq.Feet)
+```
+
+房屋面积分布的盒子图
+```{r}
+boxplot(data$Sq.Feet, horizontal = T)
+```
+
+房屋面积分布的直方图
+```{r}
+hist(data$Sq.Feet, border = 0, col = "blue")
+```
+
+## 2.3 卧室数量
+卧室数量的分布情况
+```{r}
+barplot(table(as.factor(data$Beds)), space = 0,border = 0,  col = "red")
+```
+
+## 2.4 洗手间数量
+洗手间数量的分布情况
+```{r}
+table(as.factor(data$Baths))
+```
+
+## 2.5 均值汇总
+```{r}
+apply(data[,2:5], MARGIN = 2, mean)
+```
+
+## 2.6 方差、标准差、变异系数汇总
+```{r}
+dt <- rbind(apply(data[,2:5], MARGIN = 2, var),
+            apply(data[2:5], MARGIN = 2, sd),
+            apply(data[2:5], MARGIN = 2,function(data){sd(data)/mean(data)}))
+row.names(dt) <- c("var","sd","cv")
+dt
+```
+
+## 3 变量间关系
+房价和面积的关系
+```{r}
+plot(data$Sq.Feet, data$Price, pch = 19)
+```
+
+房价和面积的相关系数
+```{r}
+cor(data$Sq.Feet, data$Price)
+```
+
+## 4 更好看点的图
+```{r,echo=FALSE}
+library(ggplot2)
+# library(ggthemes)
+```
+
+```{r}
+ggplot(data = data, aes(x = Sq.Feet, y = Price))+
+    geom_point(size = 3)+
+    geom_smooth(method ="lm",alpha = 0.2, colour = 'black', fill = 'grey')+
+    labs(title = "Relationship between Sq.Ft and Price",
+         x = "Sq.Ft",
+         y = "Price")
+```
+
+```{r}
+data$Beds <- as.factor(data$Beds)
+data$Baths <- as.factor(data$Baths)
+```
+
+```{r}
+ggplot(data = data, aes(x = Beds, y = Price), fill = Beds)+
+    geom_boxplot(aes(fill=Beds))+
+    labs(title="Boxplots",xlab="Beds")+
+    theme(legend.position="none")
+```
+
+```{r}
+ggplot(data = data, aes(x = Baths, y = Price), fill = Baths)+
+    geom_boxplot(aes(fill=Baths))+
+    labs(title="Boxplots",xlab="Baths")+
+    theme(legend.position="none")
+```

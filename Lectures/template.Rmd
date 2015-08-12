@@ -1,0 +1,19 @@
+---
+title: "图表方法"
+author: Ryan Zhang
+output: 
+  slidy_presentation: 
+    css: style.css
+    highlight: pygments
+    keep_md: yes
+---
+
+## 定性数据的总结
++ 对一部电影的40个评分
+```{r}
+set.seed(123)
+ranks <- as.factor(sample(10,40,replace = T ))
+ranks
+```
+
+
