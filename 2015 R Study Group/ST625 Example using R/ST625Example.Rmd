@@ -1,0 +1,164 @@
+---
+title: "ST625 Chapter 3 Example using R"
+author: "Ryan"
+date: "September 7, 2015"
+output:
+  html_document:
+    highlight: espresso
+  pdf_document:
+    highlight: espresso
+---
+
+# 3.9 A complete example
+## Step1. Model is $y = \beta_0 + \beta_1x + \epsilon$
+```{r}
+formula = formula('damageY~distanceX')
+```
+
+## Step2. get the data
+fire damage data
+```{r}
+fire <- cbind.data.frame(
+        distanceX = c(3.4,1.8,4.6,2.3,3.1,5.5,.7,3.0,
+                      2.6,4.3,2.1,1.1,6.1,4.8,3.8),
+        damageY = c(26.2,17.8,31.3,23.1,27.5,36.0,14.1,
+                    22.3,19.6,31.3,24.0,17.3,43.2,36.4,26.1))
+```
+
+## Step3 fit the model using the data
+model fitting using lm function
+```{r}
+fireModel <- lm(formula, data = fire)
+fireModel$coefficients
+```
+
+model fitting using formula
+```{r}
+SSxx = sum((fire$distanceX-mean(fire$distanceX))^2)
+SSxy = sum((fire$distanceX-mean(fire$distanceX))*(fire$damageY-mean(fire$damageY)))
+b1 = SSxy/SSxx
+b0 = mean(fire$damageY) - b1 * mean(fire$distanceX)
+b0;b1
+```
+
+model fitting using linear algebra
+```{r}
+X = as.matrix(cbind(rep(1,nrow(fire)),fire$distanceX))
+Y = as.matrix(fire$damageY)
+beta = solve(t(X) %*% X) %*% (t(X) %*% Y)
+beta
+```
+
+
+scatter plot with the regression line
+```{r}
+plot(x = fire$distanceX, y = fire$damageY, pch = 19)
+abline(fireModel, lwd = 2)
+```
+
+## Step4. Check assumptions on random error
+### 1 $\mathbb{E}(\epsilon)=0$
+```{r}
+mean(fireModel$residuals)
+```
+
+### 2 Var($\epsilon$) is constant 
+```{r}
+MSE = sum(fireModel$residuals^2)/fireModel$df.residual
+MSE
+RMSE = sqrt(MSE)
+plot(fire$distanceX, fireModel$residuals, pch = 19, ylim = c(-5,5))
+abline(0,0)
+abline(2.316,0, col = 'red')
+abline(-2.316,0, col = 'red')
+abline(2 * 2.316,0, col = 'blue')
+abline(2 * -2.316,0, col = 'blue')
+```
+
+### 3 $\epsilon$ normally distributed
+using histogram
+```{r}
+hist(fireModel$residuals, border = F, col = 'black')
+```
+
+using qq plot
+```{r}
+qqnorm(fireModel$residuals, pch = 19)
+abline(0,1)
+```
+
+coefficient of variation
+```{r}
+100*RMSE/mean(fire$damageY)
+```
+
+Summary information
+```{r}
+summary(fireModel)
+```
+
+## Step5. Assess model adequacy
+### a Test of model utility
+```{r}
+SE = RMSE/sqrt(SSxx)
+t = b1/SE
+2*pt(-1*abs(t), df = fireModel$df.residual)
+```
+
+### b Confidence interval for slope
+using the R function
+```{r}
+confint(fireModel)
+```
+
+hand calculation
+```{r}
+b1 + qt(0.025, df = fireModel$df.residual) * SE * c(1,-1)
+```
+
+### c Numerical descriptive measures of model adequacy
+R Squared calculated by hand
+```{r}
+SSE = sum(fireModel$residuals^2)
+SSyy = sum((fire$damageY-mean(fire$damageY))^2)
+RSquare = 1- SSE/SSyy
+RSquare
+summary(fireModel)
+```
+
+Coefficient of correlation
+by hand and using function
+```{r}
+cor(fire$damageY, fire$distanceX)
+SSxy/sqrt(SSxx*SSyy)
+```
+
+### Step6. Prediction
+ignore the tideous calculation
+```{r}
+linspace = seq(0,7,0.01)
+confInterval <- predict(fireModel,
+                        newdata = data.frame(distanceX = linspace),
+                        interval = "confidence")
+predInterval <- predict(fireModel,
+                        newdata = data.frame(distanceX = linspace),
+                        interval = "prediction")
+
+plot(x = fire$distanceX,
+     y = fire$damageY,
+     pch = 19,
+     ylim=c(0,50),
+     col = adjustcolor('black', alpha.f =  0.8))
+abline(fireModel, lwd = 2)
+points(x= linspace, y = confInterval[,2], type = 'l', col = 'red')
+points(x= linspace, y = confInterval[,3], type = 'l', col = 'red')
+points(x= linspace, y = predInterval[,2], type = 'l', col = 'blue')
+points(x= linspace, y = predInterval[,3], type = 'l', col = 'blue')
+```
+
+Make perdiction on perticular value
+```{r}
+predict(fireModel,
+        newdata = data.frame(distanceX = 3.5),
+        interval = "prediction")
+```
