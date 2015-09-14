@@ -1,0 +1,131 @@
+---
+title: "Descriptive Statistics"
+author: "Ryan"
+date: "September 12, 2015"
+output:
+  pdf_document: 
+    highlight: espresso
+  html_document:
+    highlight: espresso
+    smart: no
+    theme: readable
+---
+
+# Descriptive Statistics
+## You now know vectors...
+## Lets generate some data in vector form
+```{r}
+set.seed(123)
+ranks <- as.factor(sample(10,40,replace = T ))
+ranks
+set.seed(234)
+heights <- rnorm(40, 171, 5)
+heights
+```
+
+
+# Descriptive Statistics for Categorical data
+## Frequency Distribution Table
+```{r}
+ft <- table(ranks)
+ft
+```
+
+## Relative Frequency Distribution
+```{r}
+ft/length(ranks)
+```
+
+## Percentage Relative Frequency Distribution
+```{r}
+ft/length(ranks)*100
+```
+
+## Bar Chart
+```{r}
+barplot(ft, space = 0, border = 0)
+```
+
+## Pie Chart
+```{r}
+pie(table(ranks), border = 0)
+```
+
+# Descriptive Statistics for Numerical data
+## Frequency Distribution Table
+```{r}
+b <- seq(154, 181, 3)
+heights.cut <- cut(heights, breaks = b, right = F)
+cft <- table(heights.cut)
+cft
+```
+
+## Relative Frequency Distribution
+```{r}
+cft/length(heights)
+```
+
+## Percentage Relative Frequency Distribution
+```{r}
+cft/length(heights) * 100
+```
+
+## Histogram
+```{r}
+barplot(cft, border = 0, space = 0)
+```
+
+```{r}
+hist(heights)
+```
+
+```{r}
+hist(heights, breaks = b, right = F)
+```
+
+## Measure of Centrality: Mean and Median
+```{r}
+mean(heights)
+median(heights)
+```
+
+## Quantiles
+```{r}
+quantile(heights, probs = 0.25, type = 6)
+quantile(heights, probs = 0.5, type = 6)
+quantile(heights, probs = 0.75, type = 6)
+quantile(heights, probs = 0.95, type = 6)
+```
+
+## Five Number Summmary
+```{r}
+summary(heights)
+```
+
+## Boxplot
+```{r}
+boxplot(heights, horizontal = T, pch = 8)
+```
+
+## Measure of Dispersion : Variance and Standard Deviation
+```{r}
+var(heights)
+sd(heights)
+```
+
+# Descriptive Statistics for Linear Relationship
+## Scatter plot
+```{r}
+set.seed(231)
+weights <- heights/3+rnorm(40,0,0.5)
+plot(weights, heights, pch = 19)
+lines(x = rep(mean(weights),2), y = c(min(heights),max(heights)))
+lines(y = rep(mean(heights),2), x = c(min(weights),max(weights)))
+```
+
+## Covariance and Correlation Coefficient
+```{r}
+cov(heights, weights)
+cor(heights, weights)
+```
+

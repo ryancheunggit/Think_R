@@ -1,0 +1,89 @@
+---
+title: "LinearRegressionHousePrice"
+author: "Ryan"
+date: "September 12, 2015"
+output:
+  pdf_document: 
+    highlight: espresso
+  html_document:
+    highlight: espresso
+    theme: readable
+---
+
+## Remind of basic ML procedure
+![BasicProcedure](BasicProcedure.jpg)
+
+## Input data/Training Set
+```{r}
+houseData <- read.csv("Data.csv")
+head(houseData)
+```
+
+## Linear Regression Model (A Family of models, H)
++ Independent variable expressed as a linear combination of dependent varibales
++ $y = w_0 + w_1x_1 + ... + w_kx_k$
++ let $x_0 = 1$ and rewrite the above formula
++ $y = w_0x_0 + w_1x_1 + ... + w_kx_k$
++ that is ${\bf y}  = {\bf w}^T{\bf x}$
++ different ${\bf w} \implies$ different model(h) in the family($H$)
+
+## How to determine good model or bad model?
++ Commonly, want a model(h) that minimizes MSE of insample predictions
++ $MSE = \frac{1}{n-k-1}\Sigma{(y^{(i)} - \hat{y^{(i)}})^2}$
++ where $\hat{y^{(i)}} = {\bf w}^T{x^{(i)}}$
++ So the problem, stated in optimization term is:
++ $$\min_{{\bf w}} MSE = \frac{1}{n-k-1}\Sigma{(y^{(i)} - {\bf w}^T{x^{(i)}})^2}\\ s.t. nothing \qquad really...$$
+
+## Sounds complicated....But
++ in R, it is as simple as
+```{r}
+h <- lm(formula = Price ~ Sq.Feet + Beds + Baths,
+        data = houseData)
+```
++ and we got the h now.
++ We will talk about how this is solved in futhure.
+
+## So... agin how good is the model?
++ For now, let's only judge the model with the data we have in hand
++ look for the Adjusted R-squared value
+```{r}
+summary(h)
+```
+
+## What else we can do for now?
+```{r}
+h2 <- lm(formula = Price ~ Sq.Feet + Baths,
+         data = houseData)
+summary(h2)
+```
+
+## What else we can do for now?
+```{r}
+h3 <- lm(formula = Price ~ Sq.Feet,
+         data = houseData)
+summary(h3)
+```
+
+## What else we can do for now?
+```{r}
+h4 <- lm(formula = Price ~ Sq.Feet + Beds * Baths,
+         data = houseData)
+summary(h4)
+```
+
+## Try yourself, We can discuss next time
++ How good can you get?
++ And ... is this "good" guaranteed for outside data? 
+
+
+
+data <- houseData
+data$IT1 <- data$Beds/data$Sq.Feet
+data$IT2 <- data$Baths/data$Sq.Feet
+data$IT3 <- data$Beds*data$Baths
+data$IT4 <- data$Beds*data$Baths/data$Sq.Feet
+data$IT5 <- data$Sq.Feet^2
+data$Beds <- as.factor(as.character(data$Beds))
+data$Baths <- as.factor(as.character(data$Baths))
+g <- lm(Price~.-Address-Baths,data)
+summary(g)

@@ -1,0 +1,101 @@
+---
+title: "Kaggle Titanic Example"
+author: "Ryan"
+date: "September 7, 2015"
+output:
+  html_document:
+    highlight: espresso
+    theme: cosmo
+  pdf_document:
+    highlight: espresso
+    theme: cosmo
+---
+
+## load data
+```{r chunck1}
+train <- read.csv(file.choose(), 
+                  header = T,
+                  stringsAsFactors = F)
+```
+
+## look at data
+View using spreadsheet like window
+```{r chunck2}
+View(train)
+```
+
+Print 5 lines in console
+```{r chunck3}
+head(train)
+```
+
+view the structure
+```{r chunck4}
+str(train)
+```
+
+## prepare for model fitting
+Covert some variables into categorical(factor) variable
+```{r chunck5}
+train$Survived <- factor(train$Survived)
+train$Pclass <- factor(train$Pclass)
+train$Sex <- factor(train$Sex)
+```
+
+## Modeling
+model formula
+```{r chunck6}
+formula = formula("Survived~Pclass+Sex+Age")
+```
+
+logistic regression model
+$$y = \frac{1}{1+e^{-\beta_0-\beta_1x}}$$
+
+```{r chunck7}
+model <- glm(formula, data = train, family = "binomial")
+```
+
+in sample prediction accuracy using the model
+look at the contingency table
+```{r chunck8}
+conTable <- table(predict(model, train) > 0.5, train$Survived)
+conTable
+(117+392)/sum(conTable)
+```
+
+## Make prediction on test data
+
+```{r chunck9}
+test <- read.csv(file.choose(), 
+                 header = T, 
+                 stringsAsFactors = F)
+str(test)
+test$Pclass <- factor(test$Pclass)
+test$Sex <- factor(test$Sex)
+testpredict <- predict(model, test)
+testpredict <- ifelse(is.na(testpredict),
+                      runif(1,0,1),
+                      testpredict)
+prediction <- ifelse(testpredict > 0.5,
+                     1,
+                     0)
+submit <- cbind.data.frame(PassengerId = test$PassengerId,
+                           Survived = prediction)
+write.csv(file = "simpleLogisticRegression.csv",
+          submit, 
+          row.names = F)
+```
+
+## Classification tree model
+```{r}
+#install.packages("rpart")
+library(rpart)
+rpartModel <- rpart(formula, train)
+rpartPred <- predict(rpartModel, test, type ="class")
+submit <- cbind.data.frame(PassengerId = test$PassengerId,
+                           Survived = rpartPred)
+write.csv(file = "rpartDefault.csv",
+          submit, 
+          row.names = F)
+```
+

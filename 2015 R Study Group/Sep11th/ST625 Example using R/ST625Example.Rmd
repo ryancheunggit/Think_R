@@ -11,13 +11,13 @@ output:
 
 # 3.9 A complete example
 ## Step1. Model is $y = \beta_0 + \beta_1x + \epsilon$
-```{r}
+```{r chunck1}
 formula = formula('damageY~distanceX')
 ```
 
 ## Step2. get the data
 fire damage data
-```{r}
+```{r chunck2}
 fire <- cbind.data.frame(
         distanceX = c(3.4,1.8,4.6,2.3,3.1,5.5,.7,3.0,
                       2.6,4.3,2.1,1.1,6.1,4.8,3.8),
@@ -27,13 +27,13 @@ fire <- cbind.data.frame(
 
 ## Step3 fit the model using the data
 model fitting using lm function
-```{r}
+```{r chunck3}
 fireModel <- lm(formula, data = fire)
 fireModel$coefficients
 ```
 
 model fitting using formula
-```{r}
+```{r chunck4}
 SSxx = sum((fire$distanceX-mean(fire$distanceX))^2)
 SSxy = sum((fire$distanceX-mean(fire$distanceX))*(fire$damageY-mean(fire$damageY)))
 b1 = SSxy/SSxx
@@ -42,28 +42,27 @@ b0;b1
 ```
 
 model fitting using linear algebra
-```{r}
+```{r chunck5}
 X = as.matrix(cbind(rep(1,nrow(fire)),fire$distanceX))
 Y = as.matrix(fire$damageY)
 beta = solve(t(X) %*% X) %*% (t(X) %*% Y)
 beta
 ```
 
-
 scatter plot with the regression line
-```{r}
+```{r chunck6}
 plot(x = fire$distanceX, y = fire$damageY, pch = 19)
 abline(fireModel, lwd = 2)
 ```
 
 ## Step4. Check assumptions on random error
 ### 1 $\mathbb{E}(\epsilon)=0$
-```{r}
+```{r chunck7}
 mean(fireModel$residuals)
 ```
 
 ### 2 Var($\epsilon$) is constant 
-```{r}
+```{r chunck8}
 MSE = sum(fireModel$residuals^2)/fireModel$df.residual
 MSE
 RMSE = sqrt(MSE)
@@ -77,29 +76,29 @@ abline(2 * -2.316,0, col = 'blue')
 
 ### 3 $\epsilon$ normally distributed
 using histogram
-```{r}
+```{r chunck9}
 hist(fireModel$residuals, border = F, col = 'black')
 ```
 
 using qq plot
-```{r}
+```{r chunck10}
 qqnorm(fireModel$residuals, pch = 19)
 abline(0,1)
 ```
 
 coefficient of variation
-```{r}
+```{r chunck11}
 100*RMSE/mean(fire$damageY)
 ```
 
 Summary information
-```{r}
+```{r chunck12}
 summary(fireModel)
 ```
 
 ## Step5. Assess model adequacy
 ### a Test of model utility
-```{r}
+```{r chunck13}
 SE = RMSE/sqrt(SSxx)
 t = b1/SE
 2*pt(-1*abs(t), df = fireModel$df.residual)
@@ -107,18 +106,18 @@ t = b1/SE
 
 ### b Confidence interval for slope
 using the R function
-```{r}
+```{r chunck14}
 confint(fireModel)
 ```
 
 hand calculation
-```{r}
+```{r chunck15}
 b1 + qt(0.025, df = fireModel$df.residual) * SE * c(1,-1)
 ```
 
 ### c Numerical descriptive measures of model adequacy
 R Squared calculated by hand
-```{r}
+```{r chunck16}
 SSE = sum(fireModel$residuals^2)
 SSyy = sum((fire$damageY-mean(fire$damageY))^2)
 RSquare = 1- SSE/SSyy
@@ -128,14 +127,14 @@ summary(fireModel)
 
 Coefficient of correlation
 by hand and using function
-```{r}
+```{r chunck17}
 cor(fire$damageY, fire$distanceX)
 SSxy/sqrt(SSxx*SSyy)
 ```
 
 ### Step6. Prediction
 ignore the tideous calculation
-```{r}
+```{r chunck18}
 linspace = seq(0,7,0.01)
 confInterval <- predict(fireModel,
                         newdata = data.frame(distanceX = linspace),
@@ -157,7 +156,7 @@ points(x= linspace, y = predInterval[,3], type = 'l', col = 'blue')
 ```
 
 Make perdiction on perticular value
-```{r}
+```{r chunck19}
 predict(fireModel,
         newdata = data.frame(distanceX = 3.5),
         interval = "prediction")

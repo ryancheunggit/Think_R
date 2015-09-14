@@ -1,0 +1,110 @@
+---
+title: "PortfolioExample"
+author: "Ryan"
+date: "September 10, 2015"
+output:
+  pdf_document:
+    highlight: espresso
+  html_document:
+    highlight: espresso
+    keep_md: yes
+    theme: readable
+---
+
+MA610 + MA611 ish, sort of? 
+
+# Portfolio Problem
+We are managing a portfolio of three risky asset(Let's say Microsoft, Coke Cola and Starbucks), and trying to minimize the risk.
+
+## Load relevant packages
+```{r chunck1, message=FALSE}
+library(PerformanceAnalytics)
+library(zoo)
+library(tseries)
+```
+
+## Get history adjusted closing price from yahoo
+```{r chunck2, warning=FALSE}
+get_price <- function(stock){
+        get.hist.quote(instrument=stock,
+                    start="2010-01-01",end="2015-08-31",
+                    quote="AdjClose",provider="yahoo",
+                    origin="1970-01-01",
+                    compression="m", 
+                    retclass="zoo", 
+                    quiet=TRUE)
+}
+SBUX_prices <- get_price('sbux')
+MSFT_prices <- get_price('msft')
+COKE_prices <- get_price('coke')
+
+index(SBUX_prices) <- as.yearmon(index(SBUX_prices))
+index(MSFT_prices) <- as.yearmon(index(MSFT_prices))
+index(COKE_prices) <- as.yearmon(index(COKE_prices))
+```
+
+## Calculating returns
+```{r chunck3}
+all_prices = merge(MSFT_prices, COKE_prices, SBUX_prices)
+head(all_prices)
+colnames(all_prices) <- c("MSFT", "COKE", "SBUX")
+simple_returns <- diff(all_prices)/lag(all_prices, k=-1);
+head(simple_returns)
+```
+
+## Plot
+```{r chunck4}
+chart.Bar(simple_returns, legend.loc="bottom", main=" ")
+
+chart.CumReturns(simple_returns, wealth.index = T, legend.loc="topleft", main = "Future Value of $1 invested")
+```
+
+## using mean and sd to make investment decision(CER model?)
+$$R_i \sim iid N(\mu_i, \sigma_i^2)$$
+$$cov(R_i,R_j) = \sigma_{ij}$$
+
+
+```{r chunck5}
+return_matrix <- coredata(simple_returns)
+mu_hat_annual <- apply(return_matrix, 2, mean)*12
+cov_mat_annual <- cov(return_matrix)*12
+```
+
+## Portfolio return
++ $R_{p,x} = x_AR_A + x_BR_B + x_CR_C$
++ $\mu_{p,x} = \mathbb{E}[R_{p,x}] = x_A\mu_A + x_B\mu_B + x_C\mu_C$
++ $\sigma_{p,x}^2 = x_A^2\sigma_A^2 + x_B^2\sigma_B^2 + x_B^2\sigma_B^2 + 2x_Ax_B\sigma_{AB} + 2x_Bx_C\sigma_{BC} + 2x_Ax_C\sigma_{AC}$
+
+With the condition that the proportions sum up to 1
+$$x_A+x_B+x_C = 1$$
+
+In matrix notation
+$$\mu_{p,x} =   {\bf x}'{\bf \mu}$$
+$$\sigma_{p,x}^2 = var({\bf x}'{\bf \mu}) = {\bf x}'{\bf \Sigma x}$$
+$${\bf x}'{\bf 1}=1$$
+
+## Optimization Problem
+$$\min_{x_A,x_B,x_C} \sigma_{p,m}^2 = x_A^2\sigma_A^2 + x_B^2\sigma_B^2 + x_B^2\sigma_B^2 + 2x_Ax_B\sigma_{AB} + 2x_Bx_C\sigma{BC} + 2x_Ax_C\sigma_{AC}$$
+$$s.t. \qquad x_A+x_B+x_C = 1$$
+
+Again in Matrix Notation
+$$\min_{{\bf x}} {\bf x}'{\bf \Sigma x}$$
+$$s.t. \qquad {\bf x}'{\bf 1} = 1$$
+
+## Solve using Quadratic Programming
+Setting up the problem
+```{r}
+top.mat = cbind(2*cov_mat_annual, rep(1,3))
+bot.vec = c(rep(1,3),0)
+Am.mat = rbind(top.mat, bot.vec)
+b.vec = c(rep(0,3),1)
+z.m.mat = solve(Am.mat) %*%  b.vec
+x.vec = z.m.mat[1:3,1]
+x.vec
+mu.gmin = as.numeric(crossprod(x.vec, mu_hat_annual))
+mu.gmin
+```
+
+
+
+
