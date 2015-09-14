@@ -3,11 +3,11 @@ title: "LinearRegressionHousePrice"
 author: "Ryan"
 date: "September 12, 2015"
 output:
-  pdf_document: 
-    highlight: espresso
   html_document:
     highlight: espresso
     theme: readable
+  pdf_document:
+    highlight: espresso
 ---
 
 ## Remind of basic ML procedure
@@ -74,7 +74,6 @@ summary(h4)
 ## Try yourself, We can discuss next time
 + How good can you get?
 + And ... is this "good" guaranteed for outside data? 
-
 
 
 data <- houseData
