@@ -1,0 +1,147 @@
+---
+title: "Introduction to Machine Learning 2"
+author: "Ryan"
+date: "September 23, 2015"
+output: ioslides_presentation
+---
+
+## Recap
++ character
++ numerical
++ logical
++ factor
+
+All 1-D vectors
+
+## Dataframe 
+```{r}
+df <- data.frame(a = c(1,2,3), b = c("A","B","C"))
+names(df)[2] <- "River/Creek"
+df$a
+df$"River/Creek"
+```
+This is ugly..
+Sugget only use ".", "_" in variable names  
+
+## Basic ML Procedure
+![BasicProcedure](BasicProcedure.jpg)
+
+## Build a linear regression model
+
+## Who's model rank supreme?
+
+## Who's model rank supreme?
+My score is: 
+```{r, echo=11}
+houseData <- read.csv("Data.csv")
+data <- houseData
+data$IT1 <- data$Beds/data$Sq.Feet
+data$IT2 <- data$Baths/data$Sq.Feet
+data$IT3 <- data$Beds*data$Baths
+data$IT4 <- data$Beds*data$Baths/data$Sq.Feet
+data$IT5 <- data$Sq.Feet^2
+data$Beds <- as.factor(as.character(data$Beds))
+data$Baths <- as.factor(as.character(data$Baths))
+g <- lm(Price~.-Address-Baths,data)
+summary(g)$adj.r.squared
+```
+But wait a second, is adj.r.squared really a good metric?    
+
+Or in other word, is adj.r.squared really the cost we care to minimizing?
+
+## Linear Regression Model (A Family of models, H)
++ Independent variable expressed as a linear combination of dependent varibales
++ $y = w_0 + w_1x_1 + ... + w_kx_k$
++ let $x_0 = 1$ and rewrite the above formula
++ $y = w_0x_0 + w_1x_1 + ... + w_kx_k$
++ that is ${\bf y}  = {\bf w}^T{\bf x}$
++ different ${\bf w} \implies$ different model(h) in the family($H$)
+
+## How to determine good model or bad model?
++ Commonly, want a model(h) that minimizes RSS of insample predictions
++ $RSS = \Sigma{(y^{(i)} - \hat{y^{(i)}})^2}$
++ where $\hat{y^{(i)}} = {\bf w}^T{x^{(i)}}$
++ So the problem, stated in optimization term is:
++ $$\min_{{\bf w}} RSS = \Sigma{(y^{(i)} - {\bf w}^T{x^{(i)}})^2}\\ s.t. nothing \qquad really...$$
+
+## Stats, OR, ML
++ Stats Model    
+  Minimizing math cost function w.r.t math constraints  
+  Obtain mathmatical properties  
+  Hope to be useful in business context
++ OR Model   
+  Minimizing business cost function w.r.t business constraints  
+  Useful in business context  
+  Hope model is stable/ robust
++ Machine Learning   
+  Build lots of math models  
+  Select the one according business requirements  
+  Two stages of optimization
++ Analytic = Decision Making
+
+
+## Basic ML Procedure
+![BasicProcedure](BasicProcedure.jpg)
+
+## Basic ML Procedure
+![BasicProcedure](BasicProcedure2.png)
+
+## ML Procedure
+ with model selection based on validation set
+```{r fig.width=4.5, fig.height=5.4,echo=FALSE}
+library(png)
+library(grid)
+img <- readPNG("BasicProcedure3.png")
+grid.raster(img)
+```
+
+## Matrix
+
+## Normal Equation
+```{r fig.width=8, fig.height=5.4,echo=FALSE}
+library(png)
+library(grid)
+img <- readPNG("normalEquation.png")
+grid.raster(img)
+```
+
+## Normal Equation
+```{r}
+houseData <- read.csv("Data.csv")
+X = as.matrix(cbind(rep(1,nrow(houseData)),houseData[,3:5]))
+Y = as.matrix(houseData$Price)
+beta = solve(t(X) %*% X) %*% (t(X) %*% Y)
+t(beta)
+lm(Price~Sq.Feet+Beds+Baths, houseData)$coefficients
+```
+
+## Function
+```{r, echo=2:10}
+rm(data)
+myMean <- function(data) sum(data)/length(data)
+myMean(rnorm(999,10,1.2))
+myMean2 <- function(data){
+  s = sum(data)
+  n = length(data)
+  m = s/n
+  return(m) 
+}
+myMean2(seq(100,200,2))
+```
+
+## Why Function
++ easier for debugging
++ define - test - use without worring about the detail any longer
+```{r, eval=FALSE}
+readData <- function{...}
+parseData <- function(...)
+generateFeature <- function(...)
+trainModel <- function(...)
+validationModel <- function(...)
+makePrediction <- function(...)
+  
+df <- generateFeature(parseData(readData(...)))
+model <- trainModel(df)
+etc...
+```
+
