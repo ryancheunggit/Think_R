@@ -1,0 +1,181 @@
+---
+title: "Intro to markdown"
+author: "Ryan"
+date: "October 1, 2015"
+output:
+  word_document: default
+  html_document:
+    highlight: pygments
+    theme: readable
+---
+
+# Markdown Introduction     
+
+> Markdown is a lightweight markup language with plain text formatting syntax designed so that it can be converted to HTML    -- [wikipedia](https://en.wikipedia.org/wiki/Markdown)   
+
+Markdown uses different symbols to mark headers:     
+
+# Header Level 1   
+## Header Level 2   
+### Header Level 3   
+
+make things **BOLD** or *italic*    
+
+create a link       
+[This is a link](http://www.example.com)    
+
+add a picture      
+![Emotion](Emotion.png)   
+
+add a footnote[^demo]       
+
+add a code block    
+``` 
+@requires_authorization
+def somefunc(param1='', param2=0):
+    '''A docstring'''
+    if param1 > param2: # interesting
+        print 'Greater'
+    return (param2 - param1 + 1) or None
+class SomeClass:
+    pass
+>>> message = '''interpreter
+... prompt'''
+```
+
+a quote    
+
+> 常识是十八岁之前在头脑中所铺下的偏见层 -- 忘记是谁说的了    
+
+My favourite LaTeX Formula
+
++ Inline formula example: $\Gamma(n) = (n-1)!\quad\forall n\in\mathbb N$
++ Block formula example: $$	x = \dfrac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$
+
+Table made easy
+
+| Item      |    Value | Qty  |
+| :-------- | --------:| :--: |
+| Computer  | 1600 USD |  5   |
+| Phone     |   12 USD |  12  |
+| Pipe      |    1 USD | 234  |
+
+## See Markdown Quick Reference for more    
+
+So what R Markdown have to offer? 
+
+inline r code evaluation
+
+The average miles per gallon is `r mean(mtcars$mpg)` in our dataset    
+
+or r code chunck
+```{r}
+summary(mtcars$mpg)
+```
+
+plot  
+```{r}
+barplot(mtcars$cyl)
+```
+
+try knit this document to generate  documents of the format that you want   
+...you need to install it first   
+
+## more chuck options     
+
+R code not evaluated , setting `eval = F`     
+```{r, eval = F}
+install.packages("rmarkdown")
+```
+
+Hide the r code but display the result using `echo = F`         
+```{r, echo = F}
+a <- 1
+b <- 3
+print(a/b)
+```
+  
+Hide only part of the code `echo = c()`     
+```{r, echo = c(3,4)}
+a <- 1
+b <- 3
+print(a/b)
+print("Can you see this?")
+```
+
+```{r, echo=F}
+library(ggplot2)
+library(ggthemes)
+library(gridExtra)
+theme_set(theme_minimal(12))
+data(diamonds)
+```
+
+Message by default will shown 
+```{r}
+qplot(x = price, data = diamonds)
+```
+
+suppress by setting `message = F`    
+```{r, message = F}
+qplot(x = price, data = diamonds)
+```
+
+there could be warnings as well...
+```{r, message = F}
+p1 <- ggplot(aes(x= table , y = price), data = diamonds) + 
+    geom_point(alpha = 0.1) + 
+    xlim(55,60)
+p2 <- ggplot(aes(x= table , y = price), data = diamonds) + 
+    geom_jitter(alpha = 0.1) +
+    xlim(55,60)
+grid.arrange(p1,p2, ncol = 2)
+```
+
+get rid of it by setting `waring = F`    
+```{r, message = F, warning= F}
+p1 <- ggplot(aes(x= table , y = price), data = diamonds) + 
+    geom_point(alpha = 0.1) + 
+    xlim(55,60)
+p2 <- ggplot(aes(x= table , y = price), data = diamonds) + 
+    geom_jitter(alpha = 0.1) +
+    xlim(55,60)
+grid.arrange(p1,p2, ncol = 2)
+```
+
+You can cache the chunk that requires large amount of computation by `cache = T`     
+This is not that slow, but we only work with 1/10 of the dataset, if you try the full dataset or use ntreeTry of larger values... it is going to be SLOW....     
+```{r, cache = T}
+library(randomForest)
+set.seed(123)
+pick <- sample(1:nrow(diamonds), size = nrow(diamonds)/10, replace = F)
+X = diamonds[pick, -7]
+Y = diamonds$price[pick]
+tuneRF(x = X, y = Y)
+```
+
+This is even slower... You don't want to try this... even on 1/10 of the diamonds dataset    
+```{r, eval = F}
+result <- rfcv(trainx = X, 
+               trainy = Y,
+               cv.fold= 5,
+               step = 3)   
+```
+
+If we do this on the entire dataset, we shall push the button and go home, come back to see result tomorrow.     
+```{r, cache = T}
+set.seed(0306)
+RFModel <- randomForest(x = X,
+                        y = Y,
+                        mtry = 6,
+                        importance = T,
+                        proximity = F)
+RFModel$importance
+```
+
+```{r, cache = T}
+pred <- predict(RFModel, diamonds[,-7])
+qplot(x = pred, y = diamonds$price, alpha = 0.00001)
+```
+
+[^demo]: This is a demo footnote

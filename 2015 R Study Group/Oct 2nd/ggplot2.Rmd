@@ -1,0 +1,283 @@
+---
+title: "Introggplot"
+author: "Ryan"
+date: "September 28, 2015"
+output: html_document
+---
+
+## Install the packages first
+```{r, message = F}
+#install.packages(c("ggplot2","RColorBrewer","ggthemes","gridExtra"))
+library(ggplot2)
+require(RColorBrewer)
+library(ggthemes)
+require(gridExtra)
+```
+
+## A first plot
+The diamonds dataset come with ggplot2 package and often used to show examples of ggplot2   
+Don't worry everything will be clear to you very soon   
+```{r, cache = T}
+data(diamonds)
+qplot(data = diamonds, x = carat, y = price, color = cut, alpha = 0.1) + 
+    scale_color_brewer(palette = "Spectral") + 
+    theme_minimal()
+```
+
+## Variables in the diamonds dataset
+```{r}
+str(diamonds)
+```
+
+## qplot()  
+Histogram using `qplot()` function   
+`qplot()` is one plotting function in ggplot, the other one is `ggplot()`    
+`ggplot()` syntax is more difficult to understand   
+We will start with
+```{r, message=F}
+qplot(x = price, data = diamonds)
+```
+
+## Alter the look using themes in ggthemes package
+Try different themes   
+```{r, message=F}
+qplot(x = price, data = diamonds) + theme_economist()
+```
+
+## Setting default theme
+Set once, use through out the file    
+```{r, message=F}
+theme_set(theme_minimal(11))
+qplot(x = color, data = diamonds)
+```
+
+## Introducing color
+try #099DD9 here [w3School color picker](http://www.w3schools.com/tags/ref_colorpicker.asp)
+It is light blue  
+Let's use color name and the hex code   
+```{r,message=F}
+qplot(x = price, data = diamonds, color = 'black', fill = '#099DD9') 
+```
+
+What's wrong...?    
+ggplot does not treat 'black' and '#099DD9' in default, to force ggplot to treat them as colors, use `I()` the 'as is' function     
+```{r, message=F}
+qplot(x = price, data = diamonds, color = I('black'), fill = I('#099DD9')) 
+```
+
+## Change the axis labels
+```{r,message=F}
+qplot(x = price, data = diamonds, color = I('black'), fill = I('#099DD9'), 
+      xlab = "diamond price", ylab = 'frequency') 
+```
+
+## Facet wrap  
+Use facet wrap to create a series of plot on subset of the data     
+This is equivlent to subset the dataframe using color, and plot histograms for each subset   
+```{r, message = F}
+qplot(x = price, data = diamonds) + 
+    facet_wrap(~color, ncol = 4)
+```
+
+## Facet grid
+Use facet grid to explore subset according to combinations of two variables
+```{r, message = F}
+qplot(x = price, data = diamonds) + 
+    facet_grid(color~cut)
+```
+
+## Adjust axes
+Let's look at the measure that really matters....    
+```{r,message=F}
+qplot(x = carat, data = diamonds) 
+```
+
+What if... I am only interested in the BIG diamonds?   
+Subsetting is ofcourse a way to do it    
+```{r, message = F}
+qplot(x = carat, data = diamonds[diamonds$carat > 2,])
+```
+
+Or do it using a more ggplot way   
+```{r,message=F}
+qplot(x = carat, data = diamonds) + 
+    scale_x_continuous(limits = c(2,max(diamonds$carat)))
+```
+
+## Setting binwidth    
+to set binwidth, use breaks()    
+```{r}
+qplot(x = carat, data = diamonds, binwidth = 0.01) + 
+    scale_x_continuous(limits = c(0.3,0.5))
+```
+
+What is a good binwidht?   
+```{r}
+qplot(x = carat, data = diamonds, binwidth = 0.1) + 
+    scale_x_continuous(limits = c(0.3,0.5))
+```
+
+## Layer on layer   
+The natural way to think about ggplot is adding layers to the existing plots to modify behavior    
+```{r}
+qplot(x = carat, data = diamonds, binwidth = 0.25) + 
+    scale_x_continuous(limits = c(0.25,1.5)) + 
+    facet_wrap(~cut, ncol = length(levels(diamonds$cut)))
+```
+
+## Transformation  
+Originally low tail distributed data   
+```{r,message=F}
+qplot(x = price, data = diamonds)
+```
+
+Log transformation  
+```{r,message=F}
+qplot(x = log(price + 0.000001), data  = diamonds)
+```
+
+Save plot into a variable and then use `gridExtra` to show multiple plots   
+```{r,message=F}
+p1 <- qplot(x = price, data = diamonds)
+p2 <- qplot(x = log(price), data = diamonds)
+p3 <- qplot(x = sqrt(price), data = diamonds)
+grid.arrange(p1,p2,p3,ncol = 1, nrow = 3)
+```
+
+Actually... more ggplot way of doing this is.....    
+Add a layer!   
+```{r,message=F}
+p2 <- qplot(x = price, data = diamonds) + scale_x_log10()
+p3 <- qplot(x = price, data = diamonds) + scale_x_sqrt()
+grid.arrange(p1,p2,p3,ncol = 3, nrow = 1)
+```
+
+## Introducing the `goem`  
+Tired of histograms....? Me too    
+Let's look at different `geom`s    
+```{r, warning=F, message=F}
+pcut <- qplot(x = price, data = diamonds, geom = 'freqpoly', color = cut)
+pcolor <- qplot(x = price, data = diamonds, geom = 'freqpoly', color = color)
+pclarity <- qplot(x = price, data = diamonds, geom = 'freqpoly', color = clarity)
+grid.arrange(pcut, pcolor, pclarity, nrow =3 )
+```
+
+almost look like CDFs, except the y axis...   
+warning!!!  strange looking code ahead...     
+```{r, warning=F,message=F}
+pcut <- qplot(x = price, y = ..count../sum(..count..), data = diamonds, geom = 'freqpoly', color = cut, ylab = 'probability')
+pcolor <- qplot(x = price, y = ..count../sum(..count..), data = diamonds, geom = 'freqpoly', color = color, ylab = 'probability')
+pclarity <- qplot(x = price, y = ..count../sum(..count..), data = diamonds, geom = 'freqpoly', color = clarity, ylab = 'probability')
+grid.arrange(pcut, pcolor, pclarity, nrow =3 )
+```
+
+## Box plots    
+Or this is to test if you need a new laptop or not...
+```{r, cache = T}
+qplot(x = cut, y = price, data = diamonds, geom = 'boxplot') + 
+    facet_grid(color~clarity)
+```
+
+## Scatter plot   
+Regression works?   
+```{r}
+qplot(x = carat, y = price, data = diamonds)
+```
+
+## We should start using `ggplot()` function now   
+This is equvalent to the `qplot()` function we been using until now      
+But this syntax show the layer on top of layer concept in ggplot more clearly    
+```{r}
+ggplot(aes(x= carat, y = price), data = diamonds) + 
+    geom_point()
+```
+
+## Add some transparency    
+```{r}
+ggplot(aes(x= carat , y = price), data = diamonds) + 
+    geom_point(alpha = 0.05)
+```
+
+## Add jitter  
+Trying to find a case to show the need for this....   
+But maybe not so good with this dataset   
+```{r, message = F, warning=F}
+p1 <- ggplot(aes(x= table , y = price), data = diamonds) + 
+    geom_point(alpha = 0.1) + 
+    xlim(55,60)
+p2 <- ggplot(aes(x= table , y = price), data = diamonds) + 
+    geom_jitter(alpha = 0.1) +
+    xlim(55,60)
+grid.arrange(p1,p2, ncol = 2)
+```
+
+## Transform using layer   
+```{r, message = F, warning=F}
+ggplot(aes(x= carat , y = price), data = diamonds) + 
+    geom_point(alpha = 0.05) + 
+    coord_trans( y = 'sqrt' ) + 
+    xlim(0,3)
+```
+
+## Conditional Mean
+```{r, warning=F}
+ggplot(aes(x= carat , y = price), data = diamonds) + 
+    geom_point(alpha = 0.05, color = I('#60DFE5')) + 
+    coord_trans( y = 'sqrt' ) + 
+    xlim(0,3) + 
+    geom_line(stat = 'summary', fun.y = mean)
+```
+
+## Quantiles as well   
+```{r, warning=F}
+ggplot(aes(x= carat , y = price), data = diamonds) + 
+    geom_point(alpha = 0.05, color = I('#60DFE5')) + 
+    coord_trans( y = 'sqrt' ) + 
+    xlim(0,3) + 
+    geom_line(size = 1, stat = 'summary', fun.y = mean) + 
+    geom_line(siz3 = 1, linetype = 2, stat = 'summary', fun.y = quantile, probs = 0.25) + 
+    geom_line(size = 1, linetype = 2, stat = 'summary', fun.y = quantile, probs = 0.75)
+```
+
+## Smoothed Conditional Mean
+```{r, cache = T, message = F, warning=F}
+ggplot(aes(x= carat , y = price), data = diamonds) + 
+    geom_point(alpha = 0.08, color = I('#60DFE5')) + 
+    xlim(0,3.5) + 
+    stat_smooth(method = "gam" , color = I('blue')) 
+```
+
+## Some stats by hand  
+```{r}
+model <- lm(price~carat, data = diamonds)
+linspace <-  seq(0, 3.5, 0.01)
+ci <- predict(model, data.frame(carat = linspace), interval = "confidence", level = 0.999)
+pi <- predict(model, data.frame(carat = linspace), interval = "prediction", level = 0.999)
+mu_hat <- ci[,1]
+```
+
+## Explain?....
+```{r}
+ggplot(aes(x= carat , y = price), data = diamonds) + 
+    geom_point(alpha = 0.08, color = I('#60DFE5')) + 
+    geom_line(data = data.frame(carat = linspace, price = ci[,2]), color = 'red') +             
+    geom_line(data = data.frame(carat = linspace, price = ci[,3]), color = 'red') +
+    geom_line(data = data.frame(carat = linspace, price = pi[,2]), color = 'blue') +
+    geom_line(data = data.frame(carat = linspace, price = pi[,3]), color = 'blue') +
+    geom_line(data = data.frame(carat = linspace, price = mu_hat), color = 'black') 
+```
+
+## Some Plots I did in the past
+![Emotion Trend](Emotion.png)
+
+![OG](OG.png)
+
+## You can use ggplot in python too  
+[Yhat](https://github.com/yhat/ggplot)
+
+## Where to find examples
++ Books:     
+1.R Graphics Cookbook  
+2.ggplot2: Elegant Graphics for Data Analysis  
++ Documentation: http://docs.ggplot2.org/current/
++ CheatSheet: In our google drive

@@ -1,0 +1,76 @@
+---
+title: "Loop and simulation"
+author: "Ryan"
+date: "October 1, 2015"
+output: 
+  html_document: 
+    highlight: pygments
+    theme: readable
+---
+
+
+## while loop
+```{r, eval = F}
+i = 1
+while(i <= 100){
+    print(i)
+    i <- i + 1
+}
+
+```
+
+## for loop
+```{r, eval = F}
+for (i in 1:100){
+    print(i)
+}
+```
+
+
+```{r}
+data(mtcars)
+str(mtcars)
+```
+
+Using loop to calculate the mean for each variable
+```{r}
+mus <- vector()
+for(i in 1:ncol(mtcars)){
+    mus <- c(mus, mean(mtcars[,i]))
+}
+mus <- as.list(mus)
+names(mus) <- names(mtcars)
+t(mus)
+```
+
+## apply  
+?lapply
+```{r}
+apply(mtcars, 2, mean)
+```
+
+
+## Simulation
+$$Y_t = Y_{t-1} + \epsilon_t, \epsion_t \sim i.i.d N(0,0.1), Y_0 = 0$$
+```{r}
+set.seed(123)
+y <- 0
+e <- rnorm(1000,0,0.01)
+y <- c(y,cumsum(e))
+plot(y, type = "l")
+```
+
+## Monte Carlo Simulation
+```{r}
+mus <- vector()
+for (i in 1:999){
+    y <- 0
+    e <- rnorm(1000,0,0.01)
+    y <- c(y,cumsum(e))
+    mus <- c(mus, mean(y))
+}
+summary(mus)
+library(ggplot2)
+qplot(x = mus, geom = "freqpoly")
+```
+

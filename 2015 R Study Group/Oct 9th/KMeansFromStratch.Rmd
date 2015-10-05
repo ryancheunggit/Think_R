@@ -1,0 +1,222 @@
+---
+title: "K-Means"
+author: "Ryan"
+date: "October 4, 2015"
+output: html_document
+---
+
+## Plotting setting
+```{r}
+library(ggplot2)
+library(ggthemes)
+theme_set(theme_minimal())
+```
+
+## Some example data
+What should the k be ?  
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+ggplot(aes(x = x, y = y), data = data) + 
+    geom_point(size = 5) + 
+    xlim(-2,8) + 
+    ylim(-2,8)
+```
+
+## Distance Measures
+I am using euclidean distance here    
+But there are many other options as well   
+
+define your own distance Function   
+```{r}
+eucDistance <- function(p1,p2){
+    return(sqrt(sum((p1-p2)^2)))
+}
+
+eucDistance(data[1,],data[2,])
+eucDistance(data[3,],data[4,])
+eucDistance(data[1,],c(0,0))
+```
+
+remember the loop construct?
+```{r}
+n = nrow(data)
+for (i in 1:n) {
+    print(eucDistance(data[i,],c(0,0)))
+}
+```
+
+## Centroids  
+centroids are just points   
+however their positions may be updated in each iteration    
+Initialize three centorids    
+```{r}
+centroids <- data.frame(x = c(0,7,4),
+                        y = c(3,2,5))
+ggplot(aes(x = x, y = y), data = data) + 
+    geom_point(size = 5) + 
+    xlim(-2,8) + 
+    ylim(-2,8) +
+    geom_point(aes(x = x, y = y), data = centroids, size = 8, color = 'blue', alpha = 0.5)
+```
+
+## Assign points the centroids    
+Obivously assign points to the centroid that is closest to it    
+Let's see to which centroid point (0,0) should be assigned to?    
+```{r}
+for (cid in 1:3){ # we got three centroids
+    print(eucDistance(c(0,0), centroids[cid,]))
+}
+```
+
+So we should assign point (0,0) to centroid 1  
+
+```{r}
+distances <- vector()
+for (cid in 1:3){
+    distances <- c(distances, eucDistance(data[1,], centroids[cid,]))
+}
+distances
+which.min(distances)
+```
+
+Using nested loops to figure out the assignment for all points   
+```{r}
+assignment <- vector()
+for (pid in 1:n){ # we got n points
+    distances <- vector()
+    for (cid in 1:3){ # we got 3 centroids
+        distances <- c(distances, eucDistance(data[pid,], centroids[cid,]))
+    }
+    assignment <- c(assignment, which.min(distances))
+}
+assignment
+data$assignment <- assignment
+data
+```
+
+## update the position of the centroids  
+Update to what position ?    
+The center of the points assigned to it...    
+That is why they are called centroids, aren't they ?   :)
+also using loop    
+```{r}
+for (cid in 1:3){
+    centroids[cid,] = apply(data[data$assignment == cid,], 2, mean)[1:2]
+}
+centroids
+ggplot(aes(x = x, y = y), data = data) + 
+    geom_point(size = 5) + 
+    xlim(-2,8) + 
+    ylim(-2,8) +
+    geom_point(aes(x = x, y = y), data = centroids, size = 8, color = 'blue', alpha = 0.5)
+```
+
+## Converge
+Done... if your run the code again, nothing will change    
+
+## Make it more general than 3 centroids
+```{r}
+myKMeans <- function(data, centroids, maxIter = 999){
+    n = nrow(data)    
+    m = ncol(data)
+    k = nrow(centroids)
+    data$assignment <- k+1
+    p <- ggplot(aes(x = x, y = y), data = data) + 
+             geom_point(size = 5, color = data$assignment) + 
+             xlim(-2,8) + 
+             ylim(-2,8) +
+             geom_point(aes(x = x, y = y), data = centroids, size = 25, color = 
+                            as.numeric(row.names(centroids)), alpha = 0.5) + 
+             geom_point(aes(x = x, y = y), data = centroids, size = 8, color = 'blue')
+    plot(p)
+    for (i in 1:maxIter){
+        print(paste("iteration",i))
+        assignment <- vector()
+        oldAssignment <- data$assignment
+        for (pid in 1:n){ # we got n points
+            distances <- vector()
+            for (cid in 1:k){ # we got 3 centroids
+                distances <- c(distances, eucDistance(data[pid,1:m], centroids[cid,1:m]))
+            }
+            assignment <- c(assignment, which.min(distances))
+        }
+        print(assignment)
+        data$assignment <- assignment
+        for (cid in 1:k){
+            centroids[cid,] = apply(data[data$assignment == cid,], 2, mean)[1:2]
+        }
+        print(centroids)
+        if (sum(oldAssignment == data$assignment)== n) break   
+        p <- ggplot(aes(x = x, y = y), data = data) + 
+            geom_point(size = 5, color = data$assignment) + 
+            xlim(-2,8) + 
+            ylim(-2,8) +
+            geom_point(aes(x = x, y = y), data = centroids, size = 25, color = 
+                           as.numeric(row.names(centroids)), alpha = 0.5) + 
+            geom_point(aes(x = x, y = y), data = centroids, size = 8, color = 'blue') 
+        plot(p)
+    
+    }
+    print("===============DONE===================")
+    return(data)
+}
+rm(assignment)
+```
+
+See some example run of our k-means
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+centroids <- data.frame(x = c(1),
+                        y = c(1))
+cdata <- myKMeans(data, centroids)
+```
+
+
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+centroids <- data.frame(x = c(0,7),
+                        y = c(3,2))
+cdata <- myKMeans(data, centroids)
+```
+
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+centroids <- data.frame(x = c(2,5),
+                        y = c(2,5))
+cdata <- myKMeans(data, centroids)
+```
+
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+centroids <- data.frame(x = c(7,7),
+                        y = c(1,2))
+cdata <- myKMeans(data, centroids)
+```
+
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+centroids <- data.frame(x = c(7,7,4,3,1),
+                        y = c(1,2,5,6,2))
+cdata <- myKMeans(data, centroids)
+```
+
+```{r}
+data <- data.frame(x = c(1,0,2,5,4,5,1,0,2,6,6,4,3,3,4,4,5,5),
+                   y = c(2,0,1,3,1,0,-1,1,0,2,1,2,6,7,8,5,6,7))
+centroids <- data.frame(x = c(1,2,3,4,5,6),
+                        y = c(1,2,3,4,5,6))
+cdata <- myKMeans(data, centroids)
+```
+
+
+
+## Key Lessons
+1. K is important   
+2. Initial position of centroids also matters a lot   
+
