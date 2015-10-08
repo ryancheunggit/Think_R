@@ -1,0 +1,91 @@
+---
+title: "A Text Mining Demo"
+author: "Ryan"
+date: "October 6, 2015"
+output: html_document
+---
+
+## Libraries
+```{r}
+library(tm)
+library(SnowballC)
+```
+
+
+## NYTimes news dataset
+```{r}
+NYTdata <- read.csv("NYTimes.csv",stringsAsFactors = F)
+str(NYTdata)
+```
+
+
+## Turn the headline and abstract into a corpus
+```{r, cache = T}
+text <- vector()
+for (i in 1:nrow(NYTdata)) {
+  text <- rbind(text, paste(NYTdata$Headline[i], " ", NYTdata$Abstract[i]))
+}
+Corpus <- Corpus(VectorSource(text))
+```
+
+## Some house keeping things
+```{r, cache = T}
+Corpus <- tm_map(Corpus, tolower)     
+Corpus <- tm_map(Corpus, PlainTextDocument)    
+Corpus <- tm_map(Corpus, removePunctuation)    
+Corpus <- tm_map(Corpus, removeWords, stopwords("english"))     
+Corpus <- tm_map(Corpus, stemDocument)
+Corpus <- tm_map(Corpus, removeWords, c("york","time","today","day","said","say","report","week","will","year","articl","can","daili","news"))
+```
+
+## Converting to TF-IDF matrix and also subset
+```{r, cache = T}
+dtm <- DocumentTermMatrix(Corpus, control = list(weighting = weightTfIdf))   
+dtm
+sparse <- removeSparseTerms(dtm, 0.98)
+sdtm <- as.data.frame(as.matrix(sparse))
+row.names(sdtm) <- c(1:nrow(NYTdata))
+```
+
+## Calculating Distances
+```{r, cache = T}
+set.seed(123)
+subsetIndex <- sample(1:nrow(sdtm),replace = F,size = 200)
+sdtm.200 <- sdtm[subsetIndex,]
+sample.d <- dist(sdtm.200, method = "euclidean")
+sample.hic <- hclust(sample.d)
+plot(sample.hic, hang = -1)
+```
+
+## Kmeans k == 3
+```{r, cache = T}
+set.seed(123)
+sdtm.kmeans <- kmeans(sdtm, 3, iter.max = 10)
+cluster1 <- sdtm[sdtm.kmeans$cluster == 1,]
+cluster2 <- sdtm[sdtm.kmeans$cluster == 2,]
+cluster3 <- sdtm[sdtm.kmeans$cluster == 3,]
+sort(colSums(cluster1), decreasing = T)[1:10]
+sort(colSums(cluster2), decreasing = T)[1:10]
+sort(colSums(cluster3), decreasing = T)[1:10]
+```
+
+## Kmeans k any number you want
+```{r, cache = T}
+set.seed(123)
+NYTKMeans <- function(m, k, maxIter = 10){
+    m.kmeans <- kmeans(m, k, maxIter)    
+    for (i in 1:k){
+        cluster <- m[m.kmeans$cluster == i,]
+        print(paste("------------------Cluster ",i, " ---------------------"))
+        print(sort(colSums(cluster), decreasing = T)[1:8])    
+    }
+}
+```
+
+```{r}
+for (i in 1:5){
+    print(paste("=======================KMEANS with k = ",i, " ============================="))
+    NYTKMeans(sdtm, i, 20)
+}
+```
+

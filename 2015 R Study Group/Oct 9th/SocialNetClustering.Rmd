@@ -1,0 +1,55 @@
+---
+title: "SocialNetworkClustering"
+author: "Ryan"
+date: "October 8, 2015"
+output: html_document
+---
+
+## Load a social network
+```{r}
+library(igraph)
+library(tcltk)
+library(ggplot2)
+library(ggthemes)
+theme_set(theme_minimal())
+G = read.graph("LadaFacebookAnon.gml",format="gml")
+summary(G)
+```
+
+## Calculate the degree distribution
+Powerlaw
+```{r}
+G.degree <- degree(G, v=V(G), mode = c("all"), loops = T, normalized = F)
+qplot(x = G.degree, geom = "freqpoly", binwidth = 3)
+G.degree_bin_5 <- round(G.degree/5,0)
+```
+
+## Ugly graph...
+```{r}
+plot(G,
+     layout = layout.kamada.kawai, 
+     vertex.size = G.degree_bin_5, 
+     vertex.shape = "circle",
+     vertex.label = NA)
+```
+
+## Clustering using random walk 
+```{r}
+wc <- walktrap.community(G)
+dendPlot(wc, 
+         mode = getIgraphOpt("dend.plot.type"),
+         use.modularity = FALSE)
+```
+
+## modularity based clustering 
+```{r}
+com <- edge.betweenness.community(G, directed = F, modularity = T, merges = T)
+plot(com,
+     G, 
+     layout = layout.kamada.kawai, 
+     vertex.size = G.degree_bin_5, 
+     vertex.shape = "circle", 
+     vertex.label = NA)
+```
+
+
