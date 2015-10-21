@@ -1,0 +1,695 @@
+---
+title: "Statistic Review With R"
+author: "Ryan Zhang"
+date: "October 12, 2015"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: whale
+    fig_height: 4
+    fig_width: 8
+    fonttheme: serif
+    highlight: espresso
+    theme: Warsaw
+  slidy_presentation:
+    highlight: espresso
+---
+
+```{r, echo=F}
+library(ggplot2)
+library(ggthemes)
+theme_set(theme_minimal(10))
+```
+
+## Population V.S. Sample
++ Population: all the individuals we are interested in
+    - the characteristic of the population is called a parameter
+    - example: population mean $\mu_X$
++ Sample: some of the individuals draw from the population
+    - the characteristic of the sample is called a statistic
+    - example: sample mean $\hat{\mu}_{X}$
++ Statistical Inference: 
+    - from sample statistic to population parameter
+
+## Population V.S. Sample
+```{r,results='hold'}
+set.seed(123)
+pop = rnorm(9999,170,4)
+sample1 = sample(pop, 50)
+print(paste("population mean is ", round(mean(pop),2)))
+print(paste("sample mean is ", round(mean(sample1),2)))
+```
+
+## Central Tendency
++ Mean: Arithmic Average
+    + $$\bar{x} = \frac{\Sigma_{i}x_i}{n}$$
+    + Not robust, affected by outlier
++ Median: The middle value
+    + More robust
++ Mode: Most frequenist outcome
+    + Only meaningful measure for categorical variable
+
+## Central Tendency
+```{r, results='hold'}
+myMean <- function(data) return(sum(data)/length(data))
+myMedian <- function(data){
+    data <- sort(data)
+    if (length(data)%%2==1) data[(length(data)+1)/2]
+    else (data[length(data)/2]+data[length(data)/2+1])/2
+    }
+print(paste("sample mean is",round(myMean(sample1),2)))
+print(paste("sample median is ",round(myMedian(sample1),2)))
+```
+
+## Central Tendency
+```{r}
+myMode <- function(data){
+    freqTable <- table(data)
+    return(freqTable[freqTable == max(freqTable)])
+}
+print(myMode(c(1,1,1,2,2,2,3,3,4,5,6,6,7,7,7)))
+```
+
+## Measure of Dispersion
++ Variance, Skewness and Kurtosis are different moments
++ k-th moment: $$\frac{\Sigma (X - \bar{X})^k}{N}$$
++ Variance: k = 2
+    + Standard Deviation is Variance adjusted via SQRT to get back to the original unit of measure
++ Skewness: k = 3
+    + $Skewness < 0 \implies \text{negative skew}$ 
+    + $Skewness > 0 \implies \text{positive skew}$
++ Kurtosis: k = 4
+    + The kurtosis of a normal distribution $N(\mu, \sigma^2)$ is $3{\sigma}^4$
+    + Higher Kurtosis means fatter tails. 
+
+## Frequency and Probability
++ Frequency: the number of times a certain outcome occurs
++ If we know the frequencies of all possible outcomes, we can calculate the probability of each single one of them:$$Pr(outcome_j) = \frac{\text{freq of outcome j}}{\Sigma_{i}\text{freq of outcome i}}\times 100$$
++ For discrete variable, the frequency is literally what it is
++ For continuous variable, we need to create intervals and assign values into intervals in order to get the frequency. 
+
+## Frequency and Probability
++ What is $Pr(165\leq X < 167.5)$ in our sample1?
+```{r}
+freq_j = sum((sample1 >= 165) & (sample1 < 167.5))
+freq_total = length(sample1)
+round(freq_j/freq_total,2)*100
+```
++ This 22% is our emperical probability.  
+
+## Frequency and Probability
++ What is $Pr(X < 170)$ in our sample1?
+```{r}
+freq_j = sum(sample1 < 170)
+freq_total = length(sample1)
+round(freq_j/freq_total,2)*100
+```
++ This 54% is our emperical probability.  
+
+## Frequency and Probability
++ What is $Pr(X > 175)$ in our sample1?
+```{r}
+freq_j = sum(sample1 > 175)
+freq_total = length(sample1)
+round(freq_j/freq_total,2)*100
+```
++ This 12% is our emperical probability.  
+
+## Histogram 
+```{r}
+qplot(x = sample1, binwidth = 2.5)
+```
+
+## Freqency Polygon
+```{r}
+qplot(x = sample1, geom = "freqpoly", binwidth = 2.5)
+```
+
+## Normal Distribution
+```{r}
+linspace = seq(-4,4,0.01)
+qplot(x = linspace, y = dnorm(linspace), geom = "line") 
+```
+
+## Skewed Distribution  
++ Right == Positive == long tail on right hand side
++ Left  == Negative == long tail on left  hand side
+```{r}
+# some example data
+set.seed(123)
+binomSample <- rnbinom(9999, 10, .7)
+pd <- density(binomSample, bw = 1)
+```
+
+## Positive/Right Skewed Distribution
+```{r}
+qplot(x = pd$x, y = pd$y, geom = "line") +
+    geom_vline(xintercept = mean(binomSample)) +
+    geom_vline(xintercept  = median(binomSample), linetype = 4)
+```
+
+## Negative/Left Skewed Distribution
+```{r}
+qplot(x = -1*pd$x, y = pd$y, geom = "line") +
+    geom_vline(xintercept = -1*mean(binomSample)) +
+    geom_vline(xintercept  = -1*median(binomSample), linetype = 4)
+```
+
+## Probability From Distributions
++ If $X \sim N(0,1)$
++ What is $Pr(X \leq -2)$
+```{r,echo = 1}
+pnorm(-2, mean = 0, sd = 1)
+qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = -2)
+```
+
+## Probability From Distributions
++ If $X \sim N(0,1)$
++ What is $Pr(-2 \leq X \leq 2)$
+```{r,echo = 1}
+pnorm(2, mean = 0, sd = 1) - pnorm(-2, mean = 0, sd = 1)
+qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = -2) + geom_vline(xintercept = 2)
+```
+
+## Probability From Distributions
++ If $X \sim N(0,1)$
++ What is $Pr(X \geq 2)$
+```{r,echo = 1}
+pnorm(2, mean = 0, sd = 1, lower.tail = F) 
+qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = 2)
+```
+
+## Quantile 
++ An lower alpha quantile is a value $q_{\alpha}$ such that $100\times alpha$ percent of the data is less than or equal to it. 
++ In other word: $Pr(X \leq q_{\alpha}) = \alpha$ 
++ Median is just the 50% quantile
+```{r, results='hold'}
+quantile(sample1)
+median(sample1)
+```
++ These are our emperical quantiles
+
+## Quantile
++ The upper 0.05 quantile is often seen  
+```{r}
+qnorm(0.05,lower.tail = F)
+```
++ Which simple means that:
+    + If $X \sim N(0,1)$
+    + Then $Pr(X \geq \text{upper } q_{\alpha}) = 0.05$
+    + Where $\text{upper } q_{\alpha}$ = 1.644854
+
+## Conditional Probability
++ The probability of an event happen given another event happened  
++ Denoted as:
+    + $Pr(A|B)$
+    + $Pr(A|X = x)$
+    + etc.
+
+## Conditional Probaility
+$$Pr(Speal.Length >= 4.9)$$ 
+$$\neq$$ 
+$$Pr(Speal.Length >= 4.9| Species = "setosa")$$
+```{r, results="hold"}
+data(iris)
+100*round(sum(iris$Sepal.Length >= 4.9)/nrow(iris),2)
+100*round(sum(iris$Sepal.Length[iris$Species == "setosa"]
+              >= 4.9)/sum(iris$Species == "setosa"),2)
+```
+
+## Conditional Probaility
+$$Pr(X \geq 2 | X \sim N(0,1))$$
+$$\neq$$
+$$Pr(X \geq 2 | X \sim t(\nu = 30))$$
+```{r, results="hold"}
+pnorm(2, mean = 0, sd = 1, lower.tail = F)
+pt(2,df = 30, lower.tail = F)
+```
++ T-distribution has fatter tail than normal distribution
++ Try it out by calculating the Kurtosis if you want
++ As $\nu \rightarrow \infty$ T distribution will be more close to Standard Normal distribution 
+
+## Conditional Probability View of Quantile
+```{r}
+qnorm(0.05,mean = 0, sd = 1, lower.tail = F)
+```
++ If $X \sim N(0,1)$
++ Then $Pr(X \geq 1.644854) = 0.05$     
++ Expressed as conditional probability:
+    + $Pr(X \geq 1.644854| X \sim N(0,1)) = 0.05$
+
+## Sampling and Sampling Distribution
++ sample mean depend on the sample
+```{r}
+mean(sample1)
+```
++ Is $\hat{\mu}_{X|sample1}$
+
+## Sampling and Sampling Distribution
++ Repeated draw samples from population
++ Calculate mean on each sample 
+```{r}
+sample_means <- vector()
+set.seed(0306)
+for(i in 1:30){
+    s = sample(pop,size = 200, replace = F)
+    sample_means <- c(sample_means, mean(s))
+}
+sample_means[1:5]
+```
+
+## Sampling and Sampling Distribution
++ Distribution of sample means
+```{r}
+d = density(sample_means)
+qplot(d$x, d$y, geom = "line")
+```
+
+## Central Limit Theorem for Sample Mean
++ From any population distribution, as long as the variance of that population is finite 
++ We draw n samples from the distribution, and calculate n sample means
++ If n is sufficiently large (usually 30 will do)
++ Then the distribution of the n sample means will be approximately normal 
+
+## Law of Large Numbers
++ From any population distribution, as long as the variance of that population is finite 
++ We draw n samples from the distribution, and calculate n sample means
++ The mean of n sample means converge in probability to population mean as $n \rightarrow \infty$.
+
+## Good News and Bad News
++ Good News: If we can draw large numbers of samples from population
+    1. The distribution of sample means will be normal
+    2. The mean of sample means will be close to population mean
++ Bad News: Often time all we have is a sample
++ What we do next?
+
+## Null Hypothesis Significance Testing, NHST
++ Null hypothesis: the population mean is $\mu_{0}$ 
++ If null is true, then the mean of sample means will be $\mu_{0}$, plus sample means normally distributed
++ Esitmate standard error (standard deviation of the sampling distribution) using $\frac{\sigma}{\sqrt{n}}$ 
++ Then the sampling distribution follows $N(\mu_{0}, \frac{\sigma^2}{n})$
+```{r, echo = F}
+qq <- qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = 0) 
+qq <- qq + theme(axis.text.x=element_blank())
+plot(qq)
+```
+
+## Null Hypothesis Significance Testing, NHST
++ Given null is true, we can infer that the sampling distribution as shown in previous slide
++ Then, we can ask the question:
+    + What is the probability we obtain a sample mean large than or equal to the one $\hat{\mu}_X$ we have?
+    + $Pr(X \geq \hat{\mu}_X | X \sim N(\mu_{0}, \frac{\sigma^2}{n}))$
+    + $Pr(X \geq \hat{\mu}_X | \text{null is true})$
+```{r, echo = F}
+qq <- qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = 0) + geom_vline(xintercept = 1.96)
+qq <- qq + theme(axis.text.x=element_blank())
+plot(qq)
+```
+
+## Null Hypothesis Significance Testing, NHST
++ $Pr(X \geq \hat{\mu}_X | \text{null is true})$ the p-value is a upper quantile
++ Meaning, what percentage of sample means have a value greater than or equal to the one we had.
++ If the percentage/ probability is very small, we tend to believe that the null is not true.
++ Then we rejcet the null. 
++ Remark: This is stupid logic.
+```{r, echo = F}
+qq <- qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = 0) + geom_vline(xintercept = 1.96)
+qq <- qq + theme(axis.text.x=element_blank())
+plot(qq)
+```
+
+## Procedure of NHST of Sample Mean
+1. Specify null and alternative hypothesis
+2. Calculate test statistic 
+    + $z = \frac{\hat{\mu}_X - \mu_0}{\frac{\sigma}{\sqrt{n}}}$ if population variance is known (do we really have this case?)
+    + $t = \frac{\hat{\mu}_X - \mu_0}{\frac{\hat{\sigma}}{\sqrt{n}}}$ if population variance is unknown
+3. Calculate the p value
+    + $Pr(X \geq \hat{\mu}_X | \text{null is true})$ suppose we we do a right-tailed test 
+    + Which is equal to $Pr(Z \geq z | Z \sim N(0,1))$ if population variance is known
+    + and $Pr(T \geq t | T \sim t(\nu))$ if population variance is unknown
+4. Make judgement
+
+## Various form of NHST of the mean
+$H_0$         | $H_A$            | p value
+------------- | ---------------- | ---------------
+$\mu = \mu_0$ | $\mu \neq \mu_0$ | $2Pr(Z \geq |z|)$
+$\mu = \mu_0$ | $\mu \geq \mu_0$ | $Pr(Z \geq z)$
+$\mu = \mu_0$ | $\mu \leq \mu_0$ | $Pr(Z \leq z)$
+```{r,eval=F}
+t.test(sample1,mu = 172, alternative = "two.sided")
+t.test(sample1,mu = 172, alternative = "greater")
+t.test(sample1,mu = 172, alternative = "less")
+```
+
+## NHST One sample T.Test in R
+```{r}
+t.test(sample1,mu = 172, alternative = "less")
+```
+
+## Confidence Interval
++ If we draw a 95% interval around the mean of sampling distribution
++ Ofcourse we will include the true mean of sampling distribution
+```{r, echo = F}
+qq <- qplot(x = linspace, y = dnorm(linspace), geom = "line") +geom_vline(xintercept = 0) +geom_vline(xintercept = -1.96, linetype = 2) + geom_vline(xintercept = 1.96, linetype = 2)
+qq <- qq + theme(axis.text.x=element_blank())
+plot(qq)
+```
+
+## Confidence Interval
++ If we draw a 95% interval around a value that is smaller than the lower 0.025 quantile
++ The mean of sampling distribution will not be included
+```{r, echo = F}
+qq <- qplot(x = linspace, y = dnorm(linspace), geom = "line") +geom_vline(xintercept = -2.5) +geom_vline(xintercept = -2.5-1.96, linetype = 2) + geom_vline(xintercept = -2.5+ 1.96, linetype = 2) + geom_vline(xintercept = 0) + geom_vline(xintercept = -1.96, linetype = 2, color = "blue")
+qq <- qq + theme(axis.text.x=element_blank())
+plot(qq)
+```
+
+## Confidence Interval  
++ The formula is $\hat{\mu}_X \pm t_{\frac{\alpha}{2}, \nu} se$ 
++ Back to standard scale it is simply $0 \pm t_{\frac{\alpha}{2}, \nu}$  
++ In conditional probabilty sense: 
+$$Pr(- t_{\frac{\alpha}{2}, \nu} \leq T \leq t_{\frac{\alpha}{2}, \nu} | T \sim t(\nu)) = 0.95$$
+```{r, echo = F}
+qq <- qplot(x = linspace, y = dnorm(linspace), geom = "line") + geom_vline(xintercept = -1.96, linetype = 2) + geom_vline(xintercept = 1.96, linetype = 2)
+qq <- qq + theme(axis.text.x=element_blank())
+plot(qq)
+```
+
+## Confidence Interval
++ How often we get a sample mean below the lower 0.025 quantile or larger than the upper 0.025 quanitle? 
++ 0.025 + 0.025 = 0.05 = 5% 
++ That is to say 5% of the intervals we constructed this way will not include the true mean of sampling distribution, which according to Law of Large Numbers should be the true population mean.  
+
+## Connection Confidence Interval and NHST
++ If a null hypothesis $\mu = \mu_0$ can be rejected at a $\alpha$ significance level
++ Then the $100(1-\alpha)$ percent confidence interval will not contain $\mu_0$ 
+```{r}
+t.test(sample1,mu = 172, alternative = "two.sided")
+```
+
+## Paired Two Sample T-Test
++ Same measure score before treatment and after treatment  
++ $H_0: \mu_1 - \mu_2 = d_0$
+```{r}
+set.seed(1106)
+sample2 = sample(pop, size = 50, replace = T) + 0.8
+t.test(sample1, sample2, mu = 0, paired = T)
+```
+
+## Paired Two Sample T-Test
++ It is equivalent to a one sample test on the differences
+```{r}
+t.test(sample1-sample2)
+```
+
+## Un-Paired Two Sample T-Test
++ Need variance pooling, also the degrees of freedom has a funky formula
++ Not going to talk about the details..  
+```{r}
+set.seed(2014)
+sample3 = sample(pop, size = 111, replace = T) + rnorm(111, 0 ,0.11)
+t.test(sample1, sample2, paired = F)
+```
+
+## Chi-Square Confidence Interval for Population Variance
++ Make inference on the population variance  
++ Test statistic $\frac{(n-1)\hat{\sigma}^2}{{\sigma_0}^2} = \frac{\Sigma{(X-\hat{\mu}_X)^2}}{{\sigma_0}^2}$ 
+```{r, results="hold"}
+myChisq.CI <- function(v, level = 0.95){
+    n = length(v)
+    left <- round((n-1)*var(v)/qchisq(1-(1-level)/2,n-1),4)
+    right <- round((n-1)*var(v)/qchisq((1-level)/2,n-1),4)
+    print(paste(left,right))
+}
+myChisq.CI(sample1)
+var(pop)
+```
+
+## Chi-Square Test on Population Variance
++ You can perform Chi-Square test on it too.   
+```{r, result="hold"}
+myChisq.Test <- function(v, var0, tail = "Two-tail"){
+    n = length(v)
+    chisq <- (n-1)*var(v)/var0
+    if (tail == "Right-tail"){p <- 1-pchisq(chisq,n-1)}
+    else if (tail == "Left-tail"){p <- pchisq(chisq,n-1)}
+    else {
+        if (var > var0) p <- 2*(1-pchisq(chisq, n-1))
+        else p <- 2*(pchisq(chisq, n-1))}
+    return(p)}
+myChisq.Test(sample1,10, "Right-tail")
+var(sample1)
+```
+
+## F-test
++ Hypothesis for the ratio of two population variances
++ $H_0: \frac{{\sigma_1}^2}{{\sigma_2}^2} = 1$ 
+```{r,results = "hold"}
+myF.Test <- function(v1,v2,tail = "Two-tail"){
+    var1 <- var(v1); var2 <- var(v2); n1 <- length(v1); n2 <- length(v2)
+    f <- var1/var2
+    if (tail == "Right-tail") p <- 1-pf(f, n1-1,n2-1)
+    else if (tail == "Left-tail") p <- pf(f, n1-1,n2-1)
+    else {
+        if (var1 > var2) p <- 2*(1-pf(f, n1-1, n2-1))
+        else p <- 2*(pf(f, n-1, n2-1))
+    return(p)}
+}
+var(sample1);var(sample2);print(myF.Test(sample1, sample2, "Right-tail"))
+```
+
+## Break
++ I Guess GR521 didn't go this far now... Right?  
++ We switch to ST625 for now...
+
+## Linear Regression
++ Identify linear relationship between dependent variable and independent variables 
++ Linear function is of form :
+    + $Y = \alpha + \beta X$      
++ Example data
+```{r}
+set.seed(312)
+weights <- rnorm(50, 130, 7)
+heights <- weights * 1.3 + rpois(50,7)
+df <- cbind.data.frame(y = heights, x = weights)
+```
+
+## Simple Regression
++ One dependent variable in the linear function   
+```{r}
+qplot(x = x, y = y, data = df) + 
+    geom_abline(intercept = 3.598477, slope = 1.329348)
+```
+
+## Conditional Means
++ Conditional Means: $\mu_{Y|X}$
+```{r}
+df$interval <- cut(df$x, breaks = seq(115,155,5))
+qplot(x = interval, y = y, data = df, geom = "boxplot") + geom_jitter() + 
+    stat_summary(fun.y=mean,  geom="point", shape=8, size=5,color = "blue")
+```
+
+## Assumptions of Linear Regression 
+1. Linearity: regression line connecting all conditional means
+2. Nomarlity: all conditional distribution are normally distributed
+3. Equal Variance (Homeoscedasticity): variances for all conditional distribution are the same 
+4. Independence of the error terms: residuals are independently distributed
+```{r,echo=F}
+df$interval <- cut(df$x, breaks = seq(115,155,5))
+qplot(x = interval, y = y, data = df, geom = "boxplot") + 
+    stat_summary(fun.y=mean,  geom="point", 
+               shape=8, size=5,color = "blue") + 
+    geom_jitter()
+```
+
+## OLS Regression Line
++ Find the coefficients for $Y = \alpha + \beta X$ such that the RMSE, MSE, SSE can be minimized
++ SSE = $\Sigma{(Y - \hat{Y})^2}$
+```{r, results = "hold"}
+model <- lm(y~x, data= df)
+coefficients <- summary(model)$coefficients[,"Estimate"]
+coefficients
+RMSE <- sqrt(sum(model$residuals^2)/model$df.residual)
+RMSE
+```
+
+## OLS Regression Line
+```{r}
+summary(model)
+```
+
+## Make Predictions 
++ This is calculate the estimated values for conditional means
++ $\hat{Y} = a\times 1 + bX$ 
++ Where $a$ and $b$ are estimated values for $\alpha$ and $\beta$ from the OLS fitted linear regression function
+```{r, results="hold"}
+c(1, 144) %*% coefficients
+model$fitted.values[1:5]
+```
+
+## Naive Benchmark
++ Use a horizontal line at height of $\bar{Y}$ as predictions
++ RMSE for OLS line `r RMSE`
++ RMSE for horizontal overall mean line `r sd(df$y)` , this is simply the standard deviation of y
+```{r, echo= F}
+qplot(x = x, y = y, data = df) + 
+    geom_abline(intercept = 3.598477, slope = 1.329348) + 
+    geom_hline(yintercept = mean(df$y), color = "red")
+```
+
+## Sampling Distribution of the Slope Coefficient
++ Similar to the sampling distribution of mean
++ If we can drawn many independent samples from the population
++ For each sample we get the coefficients via OLS
++ Then we get a sampling distribution of both $a$ and $b$ 
+```{r}
+bs <- vector() -> as
+set.seed(36)
+for (i in 1:30){
+    w <- rnorm(50, 130, 7); h <- weights * 1.3 + rpois(50,7);m <- lm(h~w);
+    as <- c(as,m$coefficients[1])
+    bs <- c(bs,m$coefficients[2])}
+bs[1:5]
+```
+
+## Sampling Distribution of the Slope Coefficient
+```{r}
+bs.density <- density(bs)
+qplot(bs.density$x, bs.density$y, geom = "line")
+```
+
+## Standard Error for Sampling Distribution of the Slope Coefficient
+```{r,results="hold"}
+b.SE <- RMSE/sqrt(sum((df$x - mean(df$x))^2))
+summary(model)
+b.SE
+```
+
+## T-Test for the Slope Coefficient
++ $\frac{(b-\beta)}{\hat{\sigma}_b}$ is t distributed
+```{r,results="hold"}
+t <- coefficients[2]/b.SE
+pt(t, df = model$df.residual, lower.tail = F)
+summary(model)$coefficients
+```
+
+## Sampling Distribution of Estimated Conditional Mean
++ Use the different regression functions we got using sampling method, we can make many predictions for a given x value 
++ These predictions are the estimated conditional mean that different regression line pass through
++ And... these conditional means form a sampling distribution  
+```{r}
+preds <- cbind(as, bs) %*% c(1,144)
+row.names(preds) <- NULL
+preds[1:5]
+```
+
+## Sampling Distribution of Estimated Conditional Mean
++ The standard error term for this sampling distribution is funky
++ $\sigma_{\hat{\mu}_{Y|X}}= \sqrt{\frac{{\sigma_{Y|X}^2}}{n}+(X - \bar{X})^2\frac{{\sigma_{Y|X}^2}}{\Sigma{(X-\bar{X})^2}}}$
+```{r}
+preds.density <- density(preds)
+qplot(preds.density$x, preds.density$y, geom = "line")
+```
+
+## Confidence Interval of the Predictions
+```{r, echo = 1:2}
+weight.linspace <- seq(115,155,1)
+predict.CI <- predict(model, data.frame("x" = weight.linspace), interval = "confidence")
+ggplot(aes(x = x, y = y), data = df) + geom_point() + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.CI[,1]), color = I("black")) + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.CI[,2]), color = I("blue")) + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.CI[,3]), color = I("blue"))
+```
+
+## Prediction Interval
++ Standard Error is even more funky: 
+$$\sigma_{\hat{\mu}_{Y|X}}= \sqrt{{\sigma_{Y|X}^2} + \frac{{\sigma_{Y|X}^2}}{n}+(X - \bar{X})^2\frac{{\sigma_{Y|X}^2}}{\Sigma{(X-\bar{X})^2}}}$$
+```{r, echo = 1}
+predict.PI <- predict(model, data.frame("x" = weight.linspace), interval = "prediction")
+ggplot(aes(x = x, y = y), data = df) + geom_point() + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.CI[,1]), color = I("black")) + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.CI[,2]), color = I("blue")) + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.CI[,3]), color = I("blue")) + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.PI[,2]), color = I("red")) + 
+    geom_line(data = data.frame(x = weight.linspace, y = predict.PI[,3]), color = I("red"))
+```
+
+## Covariance
++ $\frac{\Sigma{(X-\bar{X})}{(Y-\bar{Y})}}{n}$
+```{r}
+ggplot(aes(x = x, y = y), data = df) + geom_point() + 
+    geom_vline(xintercept = mean(df$x)) + 
+    geom_hline(yintercept = mean(df$y))
+```
+
+
+## Coefficient of Correlation
++ Coefficient of Correlation is standardized covariance
++ $\frac{\Sigma{(X-\bar{X})}{(Y-\bar{Y})}}{n\sigma_X\sigma_Y}$
++ It has value within range [-1, 1] 
++ The absolute value of it suggest the strength of linear relationship
+```{r, results = "hold"}
+cov(df$x, df$y)/sd(df$x)/sd(df$y)
+cor(df$x, df$y)
+```
+
+## Coefficient of Determination
++ Total bariability in Y = variability associated with X + variability not associated with X
+$$\hat{\sigma}^2_Y = \hat{\sigma}^2_{\mu_{Y|X}} + \hat{\sigma}^2_{Y|X}$$
+$$\frac{\Sigma{(Y- \hat{\mu}_Y)^2}}{n-1} = \frac{\Sigma{(\hat{\mu}_{Y|X}-\hat{\mu}_Y)^2}}{n-1} + \frac{\Sigma{(Y-\hat{\mu}_{Y|X})^2}}{n-1}$$
+```{r, results="hold"}
+sum((df$y - mean(df$y))^2)/(length(df$y)-1)
+sum((model$fitted.values-mean(df$y))^2)/(length(df$y)-1)
+sum((df$y - model$fitted.values)^2)/(length(df$y)-1)
+91.22834+8.73472
+1-8.73472/99.96306
+cor(df$y, df$x)^2
+```
+
+## Adjusted R Squared
++ $R^2_{adj} = 1-\frac{n-1}{n-k-1}(1-R^2)$
+```{r}
+summary(model)
+```
+
+## Analysis of Variance
++ Partition of sum of squares again...
++ Sum of square deviations = sum of square of regression + sum of square of errors
++ $$\Sigma{(Y-\mu_Y)^2} = \Sigma{(\hat{\mu}_{Y|X} - \mu_Y)^2} + \Sigma{(Y - \hat{\mu}_{Y|X})^2}$$
+```{r,results="hold"}
+SSR <- sum((model$fitted.values-mean(df$y))^2)
+SSE <- sum((df$y-model$fitted.values)^2)
+SS <- sum((df$y-mean(df$y))^2)
+SSR + SSE
+SS
+```
+
+
+## Analysis of Variance
++ $F = \frac{\text{Mean Square Regression}}{\text{Mean Square Error}}$
++ $$F = \frac{\frac{\Sigma{(\hat{\mu}_{Y|X}-\mu_{Y})^2}}{k-1}}{\frac{\Sigma{(Y-\hat{\mu}_{Y|X})^2}}{n-1}}$$
+```{r, results = "hold"}
+MSR <- sum((model$fitted.values-mean(df$y))^2)/(2-1)
+MSE <- sum((df$y-model$fitted.values)^2)/model$df.residual
+f <- MSR/MSE
+c(MSR,MSE,f,pf(f,1,48,lower.tail = F))
+anova(model)
+```
+
+## Analysis of Variance
++ What is been tested?
++ Test whether $\mu_{Y|X} = \mu_Y$ 
++ Test whether $\beta_0 = \beta_1 = ... = \beta_m = 0$
++ Test whether $R^2 = 0$
++ Test whether $\rho = 0$
++ Same thing...
+
+## Model Comparison Using Anova
+```{r}
+model2 <- lm(y~x+I(x^2), data =df)
+model3 <- lm(y~x+log(x), data = df)
+anova(model2, model, test = "Chisq")
+anova(model3, model, test = "Chisq")
+```
+
+
