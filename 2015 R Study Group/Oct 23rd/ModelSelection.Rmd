@@ -1,0 +1,340 @@
+---
+title: "Model Selection, Ridge and Lass Regression"
+author: "Ryan Zhang"
+date: "October 19, 2015"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: whale
+    fig_height: 4
+    fig_width: 8
+    fonttheme: serif
+    highlight: espresso
+    theme: Warsaw
+  slidy_presentation:
+    highlight: espresso
+---
+
+## Linear Model
++ Multiple Regression Model
+$$Y = \beta_0 + \beta_1X_1 + \cdots + \beta_pX_p + \epsilon$$
++ Despite the model is simple in form, there are couple of advantages of it
+    1. Good interpretability, if multicolinearity is not that bad
+    2. Often time good predictive power
++ Solved via optimization
+    $$\min_{\beta}RSS = \Sigma{(Y-\beta^TX)^2}$$
+    
+## Example Data
+```{r, warning = F}
+library(ISLR); Hitters=na.omit(Hitters); str(Hitters)
+```
+
+## Why Not Use Them All?
+```{r}
+summary(lm(Salary~., data = Hitters))$coefficients
+```
+
+## Why Not Use Them All?
+```{r}
+summary(lm(Salary~., data = Hitters))$adj.r.squared
+summary(lm(Salary~., data = Hitters))$r.squared
+```
+
+## Why Not Use Them All?
+1. Hard to interpret   
+2. Possible overfitting    
+
+## Correlation Matrix
++ Warning: Extremely Slow on Large Dataset. Don't try this
+```{r, cache = T, warning=F, message=F}
+library(GGally); ggpairs(Hitters);
+```
+
+## Best Single Variable Regression Model?
+```{r, cache =T}
+p <- ncol(Hitters)- 1; features <- names(Hitters)[names(Hitters)!="Salary"]
+for (i in 1:p){formula = paste("Salary~",features[i], sep = "")
+    print(paste("Model with",features[i],":",
+                summary(lm(formula,Hitters))$adj.r.squared))}
+```
+
+## Best Single Variable Regression Model?
+```{r, cache = T, results ="hold"}
+adjR <- vector()
+for (i in 1:p){formula = paste("Salary~",features[i], sep = "")
+    adjR <- c(adjR, summary(lm(formula,Hitters))$adj.r.squared)
+    names(adjR)[i] <-features[i] }
+adjR
+which.max(adjR)
+```
+
+## Best Single Variable Regression Model?
+```{r}
+summary(lm(Salary~CRBI , data = Hitters))
+```
+
+## Best Two Variables Regression Model? 
+```{r, cache =T}
+step2features <- features[features!="CRBI"]
+for (i in 1:(p-1)){formula = paste("Salary~CRBI+",step2features[i], sep = "")
+    print(paste("Model with CRBI and",step2features[i],":",
+                summary(lm(formula,Hitters))$adj.r.squared))}
+```
+
+## Best Two Variables Regression Model? 
+```{r}
+adjR <- vector()
+for (i in 1:(p-1)){formula = paste("Salary~CRBI+",step2features[i], sep = "")
+    adjR <- c(adjR, summary(lm(formula,Hitters))$adj.r.squared)
+    names(adjR)[i] <-step2features[i] }
+adjR
+which.max(adjR)
+```
+
+## Best Two Variables Regression Model? 
+```{r}
+for (i in 1:(p-1)){formula = paste("Salary~CRBI+",step2features[i], sep = "")
+    print(round(summary(lm(formula,Hitters))$coefficients[,"Pr(>|t|)"],4))}
+```
+
+## Best Two Variables Regression Model? 
+```{r}
+pvals <- vector()
+for (i in 1:(p-1)){formula = paste("Salary~CRBI+",step2features[i], sep = "")
+    pvals <- c(pvals, summary(lm(formula,Hitters))$coefficients[,"Pr(>|t|)"][3])}
+pvals
+which.min(pvals)
+```
+
+## Best Two Variables Regression Model? 
+```{r}
+summary(lm(Salary~CRBI+Hits , data = Hitters))
+```
+
+## Best Three Variables Regression Model?
+```{r}
+step3features <- step2features[step2features!="Hits"]
+for (i in 1:(p-2)){formula = paste("Salary~CRBI+Hits+",step3features[i], sep = "")
+    print(paste("Model with CRBI, Hits and",step3features[i],":",
+                summary(lm(formula,Hitters))$adj.r.squared))}
+```
+
+## Best Three Variables Regression model?
+```{r, results = "hold"}
+adjR <- vector()
+for (i in 1:(p-2)){formula = paste("Salary~CRBI+Hits+",step3features[i], sep = "")
+    adjR <- c(adjR, summary(lm(formula,Hitters))$adj.r.squared)
+    names(adjR)[i] <-step3features[i] }
+adjR
+which.max(adjR)
+```
+
+## This is Called Stepwise
++ Tedious to do by hand already
++ Criterials for entering a variable and possibly througing out a variable?
++ Default criterial in SPSS is:
+    1. new entering variable results a p value < 0.05
+    2. if old variable p value > 0.1 then through it out
+    3. if no enter no leaving variables, then stop.
++ This criterial tend to favor interpretability
+
+## Criterial for choosing most predictive model
++ If all we want is predictive power, we may ignore p values and focus on other types of measures
+    1. $\text{adjusted }R^2 = 1 - \frac{n-1}{n-d-1}(1-R^2)$: 
+        + The higher the better
+    2. $C_p = \frac{1}{n}(RSS-2d\hat{\sigma}^2)$
+        + The lower the better
+    3. $AIC=-2logL+2d$ where L is the maximum likelihood
+        + The lower the better 
+        + can be prove that $AIC \sim C_p$
+    4. $BIC=\frac{1}{n}(RSS+log(n)d\hat{\sigma}^2)$
+        + The lower the better 
+        + BIC tend to choose smaller model than AIC/Cp
+
+## Best Subset Method
++ Consider all possible models...
++ $2^p$ is stupidly large number
++ This is a case where we say we are doomed by dimensionality   
++ Stepwise method try at most $\frac{1}{2}p^2$ models
++ huge reduction in the searching space
+```{r, results = "hold"}
+2^19
+19^2
+2^40
+40^2
+```
+    
+## Best Subset Method
+```{r}
+library(leaps)
+bestSubsetRegression = regsubsets(Salary~.,nvmax=p,data=Hitters)
+plot(bestSubsetRegression,scale="adjr2")
+```
+
+## Best Subset Method
+```{r}
+summary(bestSubsetRegression)$adjr2
+summary(bestSubsetRegression)$cp
+summary(bestSubsetRegression)$bic
+```
+
+## Best Subset Method
+```{r,echo = 2:7}
+par(mfrow= c(1,3))
+plot(1:19,summary(bestSubsetRegression)$adjr2, pch = 19, type="b")
+plot(1:19,summary(bestSubsetRegression)$cp, pch = 19, type="b")
+plot(1:19,summary(bestSubsetRegression)$bic, pch = 19, type="b")
+par(mfrow = c(1,1))
+```
+
+## Stepwise Method
++ Ok, we know best subset method is impossible when p is large
++ We instead search for models with restrictions 
++ Three types
+    1. Forward: 
+    start with model with only intercept
+    2. Backward: 
+    start with model with all variables
+    3. Both: 
++ Trade off for this: We might not identify the "best" model given by best subset method  
+    
+## Forward Stepwise Method
++ Try backward selection yourself
++ the best 11 variables model has the highest adjusted $R^2$  
+```{r}
+forwardSelection =regsubsets(Salary~.,data=Hitters,nvmax=p,method="forward")
+which.max(summary(forwardSelection)$adjr2)
+plot(forwardSelection,scale="adjr2")
+```
+
+## Forward Selection
+```{r}
+features[summary(forwardSelection)$which[11,2:(p+1)]]
+model_11 <- lm(Salary~AtBat+Hits+Walks+CAtBat+CRuns+CRBI+CWalks+
+               League+Division+PutOuts+Assists, data = Hitters)
+coef(forwardSelection,11)
+summary(model_11)$coefficients
+```
+
+## Estimate Out of Sample Error
++ $\text{adjusted }R^2$, $C_p$, $BIC$, $AIC$ are measure of in sample error adjusted to be used to inference the out of sample error. 
++ Can we directly estimate the out of sample error?  
++ Simplist way is use a validation set  
+
+## Revisit the Machine Learning Diagram
+![validation](BasicProcedure3.png)
+
+## Creating a validation set
++ Let's use a 70% split
+```{r, cache = T}
+library(caTools)
+set.seed(0306)
+split <- sample.split(Hitters$Salary, SplitRatio = 7/10)
+trainingSet <- Hitters[split,]
+validationSet <- Hitters[!split,]
+```
+
+## Model Selection Using a Validation Set
++ We look at the RMSE on the validation set
++ And compare with RMSE on the training set
+```{r, cache = T}
+trainingForward = regsubsets(Salary~.,data=trainingSet,
+                             nvmax=p,method="forward")
+validationErrors = rep(NA,19)
+validationX = model.matrix(Salary~., data = validationSet)
+for(i in 1:p){
+  coefi=coef(trainingForward, id=i)
+  pred=validationX[,names(coefi)]%*%coefi
+  validationErrors[i] = sqrt(mean((validationSet$Salary-pred)^2))
+}
+```
+
+## Training Error V.S. Validation Error
++ We look at the RMSE on the validation set
++ And compare with RMSE on the training set
+```{r}
+plot(validationErrors,ylab="RMSE",pch=19,type="b", ylim = c(280,450))
+points(sqrt(trainingForward$rss[-1]/180), col = 'blue', pch = 19, type ="b")
+legend("topright",legend=c("Training","Validation"),col=c("blue","black"),pch=19)
+```
+
+## Model Selection Via Validation
++ This is Wrong!
+```{r}
+which.min(validationErrors)
+coef(trainingForward, 5)
+```
++ This is Correct
+```{r}
+coef(forwardSelection,5)
+```
+
+## Shrinkage Methods
+1. OLS Regression: 
+$$\min_{\beta} RSS$$
+2. Ridge Regression:
+$$\min_{\beta} (RSS + \lambda \Sigma_i{\beta_i}^2)$$
+3. Lasso Regression:
+$$\min_{\beta} (RSS + \lambda \Sigma_i|{\beta_i}|$$
++ Don't select a variable in the model is equivalent to set the coefficient of that varaiable to be zero(or very samll).
++ We want RSS to be small, we also don't want some coefficients to be small
++ We add a shrinkage penalty to the cost(objective) function
++ Just optimize with the two goals together...
+
+## Tuning Parameter
+$$\min_{\beta} (RSS + \lambda \Sigma_i{\beta_i}^2)$$
+$$\min_{\beta} (RSS + \lambda \Sigma_i|{\beta_i}|)$$
++ The $\lambda$ is a tuning parameter   
++ $\lambda = 0$ it is just OLS Regression   
++ $\lambda = \infty$ it is just a horizontal line   
+
+## Ridge Example
+```{r, message = F, cache =T}
+library(glmnet);y=Hitters$Salary
+X=model.matrix(Salary~.-1,data=Hitters) 
+ridgeRegression = glmnet(X,y,alpha=0, standardize = T)
+plot(ridgeRegression,xvar="lambda",label=TRUE)
+```
+
+## Lasso Example
+```{r, message = F, cache =T}
+lassoRegression = glmnet(X,y,alpha=1, standardize = T)
+plot(lassoRegression,xvar="lambda",label=TRUE)
+```
+
+## Lasso Model Selection
+```{r}
+lassoRegression$lambda[1]
+as.matrix(lassoRegression$beta)[,1]
+```
+
+## Lasso Model Selection
+```{r}
+lassoRegression$lambda[2]
+which(lassoRegression$beta[,2] > 0)
+lassoRegression$beta[,2]
+```
+
+## Lasso Model Selection
+```{r}
+lassoRegression$lambda[3]
+which(lassoRegression$beta[,3] > 0)
+lassoRegression$beta[,3]
+```
+
+## Lasso Model Selection
+```{r}
+lassoRegression$lambda[10]
+which(lassoRegression$beta[,10] > 0)
+lassoRegression$beta[,10]
+```
+
+## Lasso Model Selection
+```{r}
+lassoRegression$lambda[15]
+which(lassoRegression$beta[,15] > 0)
+lassoRegression$beta[,15]
+```
+
+## How to Select $\lambda$ ?
++ We will talk about it next week...

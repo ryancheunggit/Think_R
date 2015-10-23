@@ -1,0 +1,10 @@
+base
+ISLR
+GGally
+ggplot2
+ggthemes
+leaps
+caTools
+Matrix
+foreach
+glmnet
