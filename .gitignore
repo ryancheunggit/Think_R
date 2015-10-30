@@ -1,1 +1,6 @@
 *.csv
+*.Rhistory
+*.RData
+*.rdb
+*.rdx
+2015 R Study Group/Oct 30th/LogistReg_ReSampling_cache/beamer/__packages
