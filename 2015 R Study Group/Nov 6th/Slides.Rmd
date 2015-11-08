@@ -1,0 +1,438 @@
+---
+title: "Data Table,Dplyr,Manipulate,Shiny"
+author: "Ryan Zhang"
+date: "November 5, 2015"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: whale
+    fig_height: 4
+    fig_width: 8
+    fonttheme: serif
+    highlight: espresso
+    theme: Warsaw
+---
+
+```{r, echo = F}
+setwd("D:/GithubRepos/Think_R/2015 R Study Group/Nov 6th")
+```
+
+## Data Table
+```{r, warning=F, message= F}
+library(data.table)
+```
++ Fast aggregation of large data
++ Fast add/modify/delete of columns by group using no copies at all
++ Fast file reader (fread). 
+
+## Data table
++ Example data
++ Thanks, thanks, thanks Monica !
+```{r}
+emp <- fread("emp_t.csv")
+dept <- fread("dep_t.csv")
+product <- fread("product_t.csv")
+price <- fread("price_t.csv")
+order <- fread("order_t.csv")
+orderline <- fread("orderline_t.csv")
+customer <- fread("customer_t.csv")
+```
+
+## Data table
++ If a data.table/data.frame object is been called by a function that only knows data.frame, it will be passed as a data.frame
+```{r}
+class(emp)
+```
++ Basic data.table syntax
+```
+DT [i,
+    .(j1 = col1, j2 = col2, j3 = func1(col3)),
+    by = .(col4, col5)]
+```
+
+## Data Table
++ Provide a shortcut `.N` for number of rows in data table
+```{r}
+emp[1:(nrow(emp)/4)]
+emp[1:(.N/4)]
+```
+
+## Data Table
++ Subset by row, similar to the following SQL query:    
+```
+SELECT * 
+FROM emp
+WHERE MGR = 7698;
+```   
+```{r}
+emp[MGR == 7698]
+```
+
+## Data Table
++ Subset by row, and specify columns wanted:    
+```
+SELECT EMPNO, EFNAME, ELNAME, EMP_JOB 
+FROM emp
+WHERE MGR = 7698;
+```   
+```{r}
+emp[MGR == 7698,
+    .(EMPNO, EFNAME, ELNAME, EMP_JOB)]
+```
+
+## Data Table
++ Provide a method to apply function on columns
+```{r}
+c(min(emp$SAL), mean(emp$SAL))
+emp[, 
+    .(MinSalary = min(SAL), AvgSalary = mean(SAL))]
+```
+
+## Data Table
++ More than math function can be used on columns in data table
+```{r}
+emp[, 
+    .(plot(SAL, pch = 19))]
+```
+
+## Data Table
++ Group by in data table
++ Getting more similar to SQL now...    
+```
+SELECT DEPTNO, AVG(SAL) AS "AvgSalary"
+FROM emp
+GROUP BY DEPTNO;
+```
+```{r}
+emp[, 
+    .(AvgSalary = mean(SAL)),
+    by = .(DEPTNO)]
+```
+
+## Data Table
++ More powerful group by than SQL
++ Compare the mean Salary of SALESMAN and NON-SALESMAN
++ Need two SQL queries or sub queries to get the result
+```{r}
+emp[, 
+    .(AvgSalary = mean(SAL)),
+    by = .(EMP_JOB == "SALESMAN")]
+```
+
+## Data Table
++ Compare the mean Salary of SALESMAN and NON-SALESMAN within DEPTNO == 20
++ Think about how to do it in SQL for a minute...
+```{r}
+emp[DEPTNO == 20, 
+    .(AvgSalary = mean(SAL)),
+    by = .(EMP_JOB == "SALESMAN")]
+```
+
+## Data Table
++ Find the lowest paid employees name
++ You need nested Select in SQL, but much simpler in data.table
+```
+SELECT EFNAME, ELNAME 
+FROM emp 
+WHERE SAL = (SELECT MIN(SAL) FROM emp);
+```
+```{r}
+emp[SAL == min(SAL), 
+    .(EFNAME, ELNAME)]
+```
+
+## Data Table
++ Remember: what's been returned is a data table
++ Find all orders that have more than 3 orderlines on them. List out the order id
+```
+SELECT orderid
+FROM orderline
+GROUP BY orderid
+HAVING count(*) > 3;
+```
+```{r}
+orderline[,
+          .(number = .N),
+          by = .(ORDERID)][number >3, 
+                           .(ORDERID)]
+```
+
+## sqldf
++ sqldf allow you use SQLite syntax to query dataframes
+```{r message=F, warning=F}
+library(sqldf)
+sqldf("SELECT EFNAME, EMIDDLE_INIT, ELNAME, emp.DEPTNO
+       FROM dept, emp
+       WHERE dept.DEPTNO = emp.DEPTNO 
+	        AND SAL > (SELECT MAX(SAL)
+			           FROM dept, emp
+       		           WHERE dept.DEPTNO = emp.DEPTNO AND emp.DEPTNO = 20);")
+```
+
+## R can work ontop of many DBMS
+```{r, eval = F}
+install.packages("RPostgreSQL")
+install.packages("RMySQL")
+install.packages("RMongo")
+install.packages("RODBC")
+install.packages("RSQLite")
+```
++ They said there is also a `ROracle` library, but I have trouble installing it.  
+
+## dplyr
++ They said, you can join tables using data.table, which I never figure out how to do....
++ Maybe you can find out and teach me how to do it.
++ If I need to join tables, I will use dplyr.
++ So... Let's talk about dplyr now.
+
+## dplyr
+```{r, message = F, warning = F}
+library(dplyr)
+```
++ Fast data bla bla bla
++ Can work on top of database
++ Very descriptive syntax, like SQL 
+    - "tell me what you want"
+    - "Not necessary how I should find it for you"
+
+## dplyr
++ Verbs
+    1. filter()
+    2. slice()
+    3. arrange()
+    4. select()
+    5. distinct()
+    6. transform() 
+    7. summarise()
+    8. group_by()
+
+## dplyr
++ filter() allows you to select a subset of rows by a set of conditions. 
+```
+SELECT PRODUCTFINISH, PRODUCTSTANDARDPRICE
+FROM product
+WHERE PRODUCTFINISH = "Cherry" AND PRODUCTSTANDARDPRICE > 200;
+```
+```{r}
+filter(product, PRODUCTFINISH == "Cherry", PRODUCTSTANDARDPRICE > 200)
+```
+
+## dplyr
++ slice() allows you the select a subset of rows by positions:
++ How to do this in SQL?
++ LIMIT and OFFSET are supported by PostgreSQL, but not Oracle? (If my memory is correct.)  
+```{r}
+slice(orderline, 1:6)
+```
+
+## dplyr
++ arrange() reorders rows according to values in specified columns. 
++ Similar to ORDER BY in SQL. 
+```
+SELECT *
+FROM product
+ORDER BY PRODUCTFINISH, PRODUCTSTANDARDPRICE;
+```
+```{r}
+arrange(product, PRODUCTFINISH, PRODUCTSTANDARDPRICE)
+```
+
+## dplyr
++ Use desc() to order a column in descending order.
+```{r}
+arrange(product, PRODUCTFINISH, desc(PRODUCTSTANDARDPRICE))
+```
+
+## dplyr
++ select() allows you to select columns:
+```
+SELECT STDPRICE, MINPRICE
+FROM price;
+```
+```{r}
+select(price, STDPRICE, MINPRICE)
+```
+
+## dplyr
++ distinct() to find unique values in a table.
++ Remind you of the DISTINCT in SQL?
+```
+SELECT DISTINCT PRODUCTFINISH
+FROM product;
+```
+```{r}
+distinct(select(product, PRODUCTFINISH))
+```
+
+## dplyr
++ Add new columns with mutate(), you can directly work on the columns you just created.
++ Think about how to do this in SQL. 
+```{r, echo = 2:4}
+product2 <- tbl_df(product)
+mutate(product2, 
+       DISCOUNT = ifelse(PRODUCTFINISH == "Leather", 0.85, 0.7),
+       DISCOUNTEDPRICE = DISCOUNT * PRODUCTSTANDARDPRICE)
+```
+
+## dplyr
++ use transmute() is only include the columns created
+```{r}
+transmute(product2, 
+            DISCOUNT = ifelse(PRODUCTFINISH == "Leather", 0.85, 0.7),
+            DISCOUNTEDPRICE = DISCOUNT * PRODUCTSTANDARDPRICE)
+```
+
+## dplyr
++ use summarise() to do aggregation
+```
+SELECT AVG(PRODUCTSTANDARDPRICE)
+FROM product;
+```
+```{r}
+summarise(product,
+  meanPrice = mean(PRODUCTSTANDARDPRICE))
+```
+
+## dplyr
++ use group_by() to do grouping.   
+```
+SELECT AVG(PRODUCTSTANDARDPRICE)
+FROM product
+GROUP BY PRODUCTFINISH;
+```
+```{r}
+product_by_FINISH <- group_by(product, PRODUCTFINISH)
+summarise(product_by_FINISH,
+          meanPrice = mean(PRODUCTSTANDARDPRICE))
+```
+
+## dplyr
++ Chaining. 
+```
+SELECT AVG(PRODUCTSTANDARDPRICE) AS "meanPrice"
+FROM product
+GROUP BY PRODUCTFINISH
+HAVING AVG(PRODUCTSTANDARDPRICE) > 300
+ORDER BY AVG(PRODUCTSTANDARDPRICE) DESC;
+```
+```{r}
+arrange(
+    filter(
+        summarise(group_by(product, 
+                           PRODUCTFINISH),
+                  meanPrice = mean(PRODUCTSTANDARDPRICE)),
+        meanPrice > 300), 
+    desc(meanPrice))
+```
+
+## dplyr
++ Use `%>%` this strange symbol.. To make code more readable. 
+```{r}
+product %>%
+    group_by(PRODUCTFINISH) %>%
+    summarise(meanPrice = mean(PRODUCTSTANDARDPRICE)) %>%
+    filter(meanPrice > 300) %>%
+    arrange(desc(meanPrice))
+```
+
+## dplyr
++ Lots of join operations as well...
+```{r, echo = 2}
+emp$DEPTNO <- as.integer(emp$DEPTNO)
+inner_join(emp, dept)
+```
+
+## dplyr
++ Find all Products purchased by at least 4 customers.
+```
+SELECT PRODUCTID
+FROM order, orderline 
+WHERE order.ORDERID = orderline.ORDERID
+GROUP BY PRODUCTID, CUSTOMERID
+HAVING COUNT(*) >= 4;
+```
+```{r}
+inner_join(order, orderline, by = "ORDERID") %>%
+    group_by(PRODUCTID, CUSTOMERID) %>%
+    summarise(countCustomer = n()) %>%
+    filter(countCustomer >= 4) %>%
+    select(PRODUCTID)
+```
+
+## dplyr
++ Find all employees who make more than their manager
+```
+SELECT EFNAME, EMIDDLE_INIT, ELNAME
+FROM emp employee, emp manager
+WHERE employee.mgr = manager.empno 
+    AND employee.SAL > manager.SAL;
+```
++ I don't know how to do self join using dplyr
++ Maybe you can dig into it and teach me...
+
+## manipulate
++ Interactive plotting functions for use within RStudio.
++ The manipulate function accepts a plotting expression and a set of controls (e.g. slider, picker, checkbox, or button) which are used to dynamically change values within the expression. 
+```{r message = F, warning = F, eval=F}
+library(manipulate);library(ggplot2)
+manipulate(
+qplot(x = diamonds[,variable], geom = geomtype, fill = diamonds[, colorby])+
+    xlim(c(xmin, xmax)),
+variable = picker("carat" = "carat", "depth" = "depth", "table" = "table", 
+                  "price" = "price", "x" = "x", "y" = "y","z" = "z"),
+geomtype = picker("histogram" = "histogram", "freqpoly" = "freqpoly"),
+colorby = picker("cut" = "cut", "color" = "color", "clarity" = "clarity"),
+xmin = slider(0,300), xmax = slider(5.2,19000))
+```
+
+## shinyapps
++ Shinyapps.io is a platform as a service (PaaS) for hosting Shiny web apps (applications). 
++ ui.R
++ server.R
+```{r, eval=F}
+library(shiny)
+runApp()
+```
+
+## shinyapps
++ ui.R
+```{r, eval =F}
+library(shiny)
+shinyUI(pageWithSidebar(
+  headerPanel("Standard Normal Density"),# Application title
+  sidebarPanel(# Sidebar with a slider input for 
+    p("computes probability for a standard normal distribution."),
+    p("choose a score by sliding the slide, and choose tail using the dropdown."),
+    h3('Please choose score'),
+    sliderInput("score", "It could only be between -4 and 4:", 
+                min = -4, max = 4, value = 0, step = 0.01),
+    h3('Please choose lower tail or upper tail'),
+    selectInput("lo", " ", choices = c("lower", "upper"), selected = "lower")
+    ),
+  mainPanel(# show a normal distribution with score indicated as a red vertical line
+    plotOutput("distPlot"),
+    h3("The associated probability is"),
+    verbatimTextOutput("pvalue"))))
+```
+
+## shinyapps
++ server.R
+```{r eval= F}
+library(shiny)
+shinyServer(
+  function(input,output){
+    output$distPlot <- renderPlot({# generate an rnorm distribution and plot it
+      x <- seq(-4,4,by = 0.01)
+      y <- dnorm(x,mean=mean(x),sd=sd(x)) 
+      xl <- rep(input$score,301)
+      yl <- seq(0,0.3,by = 0.001)
+      plot(x, y, type = "l",col="black", lwd=2,ylab = "Pr(X=x)")
+      lines(xl,yl,col="red",lwd=2)
+    })
+    lower <- reactive({switch(input$lo, "lower" = T, "upper" = F)})
+    output$pvalue <- renderPrint({pnorm(input$score, 0,1, lower.tail = lower())})
+    })
+```
+
+
+
