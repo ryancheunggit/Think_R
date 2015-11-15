@@ -1,0 +1,482 @@
+---
+title: "Decision Trees, Support Vector Machine and Metrics for Classification Problems"
+author: "Ryan Zhang"
+date: "November 10, 2015"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: whale
+    fig_height: 4
+    fig_width: 8
+    fonttheme: serif
+    highlight: espresso
+    theme: Warsaw
+---
+
+## What Happened....
++ For those who did not come last two sections.....
++ We talked about: 
+    1. Logistic Regression:
+        - a classification method    
+    2. Cross Validation: 
+        - a resampling method used to measure out of sample perfomance of model   
+    3. Bootstrap:
+        - a resampling method can be used to estimate statistics without need for standard error
+        - e.g. 95% bootstrap confidence interval of $R^2$
+    4. data.table, dplyr, sqldf:
+        - packages help you to perform fast data manipulation in R
+
+## Topics Today
++ Information Gain
++ Decision Tree
++ Support Vector Machine
++ Classification Performance Metrics
++ ROCR curve
+
+## Dataset
++ Drinking red wine again ....
+```{r, echo = F}
+setwd("D:/GithubRepos/Think_R/2015 R Study Group/Nov 13th")
+wine <- read.csv("wineQualityReds.csv")
+wine$quality <- ifelse(wine$quality >= 6, 1, 0)
+wine$quality <- as.factor(as.character(wine$quality))
+wine$X <- NULL
+library(ggplot2)
+library(ggthemes)
+library(gridExtra)
+theme_set(theme_minimal(11))
+```
+
+```{r}
+str(wine)
+```
+
+## Quick Example of a Classification Tree
+```{r}
+library(rpart);library(rpart.plot)
+rp <- rpart(quality~., data = wine);prp(rp)
+```
+
+## Quick Example of a Classification Tree
+```{r}
+rp.predict <- predict(rp,wine,type = "class")
+contingency_table <- table(rp.predict, wine$quality)
+contingency_table
+accuracy = sum(diag(contingency_table))/sum(contingency_table)
+accuracy
+```
+
+## Question  
++ Why First Split With Alcohol < 10?
+```{r}
+table(wine$alcohol < 10, wine$quality)
+```
+
+## Untitled
++ Remember the Visualization I Showed You Two Weeks Back?
+```{r, echo = F, warning=F}
+ggplot(wine, aes(x = fixed.acidity, y = alcohol)) + 
+         geom_point(aes(color = quality), size = 4, alpha = 0.5) +
+         geom_abline(intercept = 10, slope = 0, size = 1) + 
+         scale_color_brewer(palette = "Set1") +
+         xlab("fixed.acidity (g / dm^3)")+
+         ylab("alcohol (% by volume)")+
+         xlim(c(5, 14)) +
+         ggtitle(paste("fixed.acidity against alcohol colored by quality")) + 
+         labs(color = "quality >= 5") 
+```
+
+## Entropy
++ Formula for entropy: 
++ $$\Sigma_{i}{-(p_i)log_{2}{(p_i)}}$$   
++ Initially, it is almost total chaos(50% 50%), so entropy is very close to 1.   
+```{r}
+table(wine$quality)
+p1 <- 855/(855+744)
+p0 <- 744/(855+744)
+p1
+p0
+(-p1*log(p1,2) + -p0*log(p0,2))
+```
+
+## Entropy
++ Wrap in a function  
+```{r}
+calculateEntropy <- function(t){
+    p1 <- t[1]/sum(t); p2 <- t[2]/sum(t)
+    return (-p1*log(p1,2) + -p2*log(p2,2))}
+pEntropy <- calculateEntropy(table(wine$quality))
+pEntropy
+```
+
+## Information Gain
++ We want to determine which feature is most useful for discriminating between the classes of interest.
++ Parent Entropy is `r (-p1*log(p1,2) + -p0*log(p0,2))`
++ Calculate entropy for the two child branches.
+```{r, results="hold"}
+ct1 <- with(wine[wine$alcohol < 10,], table(quality))
+ct2 <- with(wine[wine$alcohol >= 10,], table(quality))
+ct1
+ct2
+```
+
+## Information Gain
++ Calculate entropy for the two child branches.
+```{r, results="hold"}
+c1Entropy <- calculateEntropy(ct1)
+c2Entropy <- calculateEntropy(ct2)
+c1Entropy
+c2Entropy
+```
+
+## Information Gain
++ Formula for information gain
++ IG = Parent Entropy - Weighted Average of Children Entropies
+```{r}
+IG1 <- pEntropy - sum(ct1)/nrow(wine)*c1Entropy - sum(ct2)/nrow(wine)*c2Entropy
+IG1
+```
+
+## Information Gain from Another Split
+```{r}
+ct1 <- with(wine[wine$alcohol < 11,], table(quality))
+ct2 <- with(wine[wine$alcohol >= 11,], table(quality))
+c1Entropy <- calculateEntropy(ct1)
+c2Entropy <- calculateEntropy(ct2)
+IG2 <- pEntropy - sum(ct1)/nrow(wine)*c1Entropy - sum(ct2)/nrow(wine)*c2Entropy
+IG2
+```
+
+## Information Gain from Another Split
+```{r}
+ct1 <- with(wine[wine$alcohol < 10.5,], table(quality))
+ct2 <- with(wine[wine$alcohol >= 10.5,], table(quality))
+c1Entropy <- calculateEntropy(ct1)
+c2Entropy <- calculateEntropy(ct2)
+IG3 <- pEntropy - sum(ct1)/nrow(wine)*c1Entropy - sum(ct2)/nrow(wine)*c2Entropy
+IG3
+```
+
+## Information Gain from Yet Another Split
+```{r}
+ct1 <- with(wine[wine$alcohol < 9.5,], table(quality))
+ct2 <- with(wine[wine$alcohol >= 9.5,], table(quality))
+c1Entropy <- calculateEntropy(ct1)
+c2Entropy <- calculateEntropy(ct2)
+IG4 <- pEntropy - sum(ct1)/nrow(wine)*c1Entropy - sum(ct2)/nrow(wine)*c2Entropy
+IG4
+```
+
+## Find Split that Maximize the Information Gain
++ Split using alcohol $\geq 10$ is better than other three choices, in terms of information gain.
+```{r}
+IG1 > IG2
+IG1 > IG3
+IG1 > IG4
+```
+
+## Decision Tree
++ Iterativly Finding the best split to nodes  
++ Dynamic Programming?
++ At each stage(level of the tree), for each state(the data in the node) we try to make the decision(how to split) and leads to optimal(maximum information gain). 
+```{r}
+prp(rp)
+```
+
+## Decision Tree
+```{r, echo = F, warning=F, message=F}
+ggplot(wine[wine$alcohol < 10, ], aes(x = free.sulfur.dioxide, y = sulphates)) + 
+         geom_point(aes(color = quality), size = 4, alpha = 0.5) +
+         geom_abline(intercept = 0.57, slope = 0, size = 1) + 
+         scale_color_brewer(palette = "Set1") +
+         xlab("free.sulfur.dioxide")+
+         ylab("sulphates")+
+         xlim(c(0, 40)) +
+         ylim(c(0.38, 1.0)) +
+         ggtitle(paste("free.sulfur.dioxide against sulphates for left branch colored by quality")) + 
+         labs(color = "quality >= 5") 
+```
+
+## Hyper Parameters for Decision Tree
++ More correctly, for `rpart` package in R
++ `minsplit`: minimial number of datapoints in the node that we will attemp to find a split.
+    - When to stop splitting.
++ `minbucket`: the minimal number of nodes in each leaf.
+    - Also affect when to stop.
++ `maxdepth`: the maximum height of the tree.
+    - Also affect when to stop....
++ `cp`: If the best split is not good enough, then we don't split.
+    - Again... affect when to stop split.   
++ Why we should tune these parameters?
+    - Trees are easy to build and easy to be overfitting.
+    - Avoid tall tree with small leaves = avoid overfitting.
+
+## How cp Affects the Tree?
++ Higher cp -> Simpler Tree
+```{r}
+rp <- rpart(quality~., data = wine, control = rpart.control(cp = 0.1))
+prp(rp)
+```
+
+## How cp Affects the Tree?
++ Smaller cp -> more complicated tree
+```{r}
+rp <- rpart(quality~., data = wine, control = rpart.control(cp = 0.00001))
+prp(rp)
+```
+
+## Million Dollar Question for Decision Trees
++ How to choose these hyper parameters? 
+
+## Million Dollar Question for Decision Trees
++ How to choose these hyper parameters? 
++ Cross Validation
+
+## Tuning Hyper Parameters Via Cross Validation
+```{r, warning=F,message=F, cache = T}
+library(caret)
+set.seed(0306)
+tuningParams <- expand.grid(.cp = c(0.0001,0.0005,0.001,0.005,0.01,0.05,0.1))
+trainControl <- trainControl(method = "cv", number = 10)
+rp.train <- train(quality~., data = wine, method = "rpart",
+            trControl = trainControl, tuneGrid = tuningParams)
+plot(rp.train)
+```
+
+## Tuning Hyper Parameters Via Cross Validation
+```{r, warning=F,message=F, cache = T}
+set.seed(1106)
+tuningParams <- expand.grid(.cp = c(1:50)*0.0002)
+trainControl <- trainControl(method = "cv", number = 10)
+rp.train <- train(quality~., data = wine, method = "rpart",
+            trControl = trainControl, tuneGrid = tuningParams)
+plot(rp.train)
+print(rp.train$bestTune)
+```
+
+## Fit the Model Using the Tuned CP
+```{r}
+rp <- rpart(quality~., data = wine, control = rpart.control(cp = rp.train$bestTune))
+prp(rp)
+rp.predict <- predict(rp, wine, type = "class")
+```
+
+## Fit the Model Using the Tuned CP
++ Not only insample accuracy is higher, we also think it will be more generalizable. 
+```{r}
+contingency_table <- table(rp.predict, wine$quality)
+contingency_table
+accuracy = sum(diag(contingency_table))/sum(contingency_table)
+accuracy
+```
+
+## A Note On the Short Comming of `train`
++ Not every hyper parameter can be tuned using it   
+[==>link to the list of tunable hyper parameters<==](http://topepo.github.io/caret/modelList.html)
++ What if you want to tune `minsplit`, `maxdept` as well?
+
+## An Alternative Tuning Function
++ Tuning parameters can be slow.
++ Set it up before you go to sleep. 
+```{r, cache = T}
+library(e1071)
+t0 <- Sys.time()
+rp.train <- tune.rpart(quality~., data = wine,
+                       minsplit = 1:5,
+                       maxdepth = 5:15,
+                       cp = (1:50)*0.0001,
+                       tunecontrol = tune.control(sampling = "cross", cross = 10))
+print(Sys.time() - t0)
+print(rp.train$best.parameters)
+```
+
+## Plot the Tree
+```{r}
+rp <- rp.train$best.model
+prp(rp)
+```
+
+## A Little Flavor of Scikit-Learn in Python
++ Example use scikit learn in python   
++ `GridSearchCV` in scikit learn is more powerful IMPO
++ This is python code:  
+```{r, eval=F}
+from sklearn.tree import DecisionTreeClassifier   
+from sklearn.grid_search import GridSearchCV   
+DT = DecisionTreeClassifier(criterion = 'entropy')     
+tuning_parameters = {'max_depth': range(4,10),      
+                     'min_samples_split': [i*2 for i in range(1,6)]}     
+for score in ['accuracy', 'recall', 'precision', 'f1']:    
+    Clf = GridSearchCV(DT, tuning_parameters, cv = 10, scoring = score)     
+    Clf.fit(features, labels)     
+    print Clf.best_estimator_     
+```
+
+## Separation Hyperplane
++ What a split really means?
++ What is the split `alcohol < 10` really means?
++ $\text{Sign}(10 + 0\times x_1 + 0\times x_2 + ... + -1\times x_{alcohol} + ... + 0 \times x_m)$
++ $[10,0,0,...,-1,...,0] and x_0 = 1$ define a hyperplane that devide the feature space into two half spaces.
+```{r, echo = F, warning=F}
+ggplot(wine, aes(x = fixed.acidity, y = alcohol)) + 
+         geom_point(aes(color = quality), size = 4, alpha = 0.5) +
+         geom_abline(intercept = 10, slope = 0, size = 1) + 
+         scale_color_brewer(palette = "Set1") +
+         xlab("fixed.acidity (g / dm^3)")+
+         ylab("alcohol (% by volume)")+
+         xlim(c(5, 14)) +
+         ggtitle(paste("fixed.acidity against alcohol colored by quality")) + 
+         labs(color = "quality >= 5") 
+```
+
+## Which Hyperplane is Better
++ They all correctly classifer the points   
+```{r, echo = F}
+df <- data.frame(x = c(1,2,1,4,5,5),
+                 y = c(1,1,2,2,1,2),
+                 type = c(1,1,1,2,2,2))
+df$type <- as.factor(df$type)
+ggplot(df, aes(x = x,y = y)) + 
+    geom_point(aes(color = type), size = 4) + 
+    xlim(-2,7) + 
+    ylim(-1,4) +
+    geom_abline(intercept = 5.5, slope = -2, size = 1, col = 'red') + 
+    geom_abline(intercept = 4.5, slope = -1, size = 1, col = 'black') +
+    geom_abline(intercept = 3.5, slope = -0.6, size = 1, col = 'blue') 
+```
+
+## Support Vector Machine
++ If we encode high quality wine with 1 and low quality wine with -1
++ That is let $y_i$ take values ${-1,1}$
++ When will $y_i(\hat{y_i}) = y_i(b + W^TX_i) \geq 1 \text{ for all n }$ ?
++ SVM formula(hard margin version):
+$$\max_{b,W} \frac{1}{\sqrt{W^TW}} = \min_{b,w} \frac{1}{2}W^TW$$
+$$\text{subject to  }y_i(W^TX_i+b) \geq 1 \text{ for i =1,2,...n}$$
++ It is a quadratic programming problem  
++ And the original objective function measure the margin from the classifier to the support vectors. 
+
+## Large Margin Classifer
++ The points/vectors on the boundaries are called support vectors  
++ You only need these support vectors to determine the line/hyperplane  
+```{r, echo = F}
+df <- data.frame(x = c(1,2,1,4,5,5),
+                 y = c(1,1,2,2,1,2),
+                 type = c(1,1,1,2,2,2))
+df$type <- as.factor(df$type)
+ggplot(df, aes(x = x,y = y)) + 
+    geom_point(aes(color = type), size = 4) + 
+    xlim(-2,7) + 
+    ylim(-1,4) +
+    geom_abline(intercept = 6, slope = -1, size = 0.5,type = 2) + 
+    geom_abline(intercept = 4.5, slope = -1, size = 1,type = 2) +
+    geom_abline(intercept = 3, slope = -1, size = 0.5,type = 2) 
+```
+
+## Support Vector Machine
++ There is soft version SVM as well, which is just like hard ones but allow small errors.  
+```{r, echo = F}
+df <- data.frame(x =    c(1,0,1,2.2,1,4,5,5,5,3,4),
+                 y =    c(0,0,1,1.8,  2,2,1,2,3,1,1.2),
+                 type = c(1,1,1,2,  1,2,2,2,2,1,2))
+df$type <- as.factor(df$type)
+ggplot(df, aes(x = x,y = y)) + 
+    geom_point(aes(color = type), size = 4) + 
+    xlim(-2,7) + 
+    ylim(-1,4) +
+    geom_abline(intercept = 2.8, slope = -0.53, size = 1, col = "blue") + 
+    geom_vline(xintercept  =2.5, size = 1) + 
+    geom_vline(xintercept  =1, size = 0.5, type = 2) + 
+    geom_vline(xintercept  =4, size = 0.5, type = 2)
+```
+
+## Support Vector Machine
+```{r}
+library(e1071)
+SVM <- svm(quality~., data = wine, kernel = "radial")
+contingency_table <- table(SVM$fitted, wine$quality)
+contingency_table
+accuracy = sum(diag(contingency_table))/sum(contingency_table)
+accuracy
+```
+
+## Hyper Parameters For SVM
++ Kernel: linear, polynomial, radial, sigmoid
+    - Determine the complexity of SVM
+    - linear is the simplest one
++ degree of polynomial is Kernel is polynomial
++ gamma: for nonlinear Kernel
++ cost: the C constant of the regularization term
+    - higher C means no regularization and leads to overfit
+    - lower C means strong regularization and leads to underfit
+
+## Tuning a SVM
+```{r, cache = T, warning=F, message=F}
+t0 <- Sys.time()
+SVM.train <- tune.svm(quality~., data = wine, kernel = "radial",  
+                      gamma = 2^(-2:2), cost = 2^(-2:4),
+                      tunecontrol = tune.control(sampling = "cross", cross = 10))
+print(Sys.time() - t0)
+print(SVM.train$best.parameters)
+```
+
+## Overfit?
+```{r}
+SVM <- SVM.train$best.model
+contingency_table <- table(SVM$fitted, wine$quality)
+contingency_table
+accuracy = sum(diag(contingency_table))/sum(contingency_table)
+accuracy
+```
+
+## Issue With Overfitting 
+> Unfortunately, the performance of the SVM can be quite sensitive to the selection of the regularisation and kernel parameters, and it is possible to get over-fitting in tuning these hyper-parameters via e.g. cross-validation. The theory underpinning SVMs does nothing to prevent this form of over-fitting in model selection. See my paper on this topic:
+
+> G. C. Cawley and N. L. C. Talbot, Over-fitting in model selection and subsequent selection bias in performance evaluation, Journal of Machine Learning Research, 2010. Research, vol. 11, pp. 2079-2107, July 2010.
+
+[Link to the Source](http://stats.stackexchange.com/questions/107553/how-do-support-vector-machines-avoid-overfitting)
+
+## Metrics for Classification Problems
++ Accuracy: In general how often I got it right
+    - I predict it is good and it is really good
+    - I predict it is bad and it is really bad
++ Precision: 
+    - When I predict it is good, how often it is really good
++ Recall:
+    - For the good wines, what what percentage of them is correctly identified.  
++ Other metrics:
+    - f1
+    - Kappa
+    - TPR, FPR
+    - etc
+
+## ROC Curve
++ Let you make decision on decision cut offs for some classifier
++ Trade off between TPR and FPR
++ Access how good the classifier is
+```{r, message=F,warning=F}
+library(ROCR)
+pred <- prediction(predict(rp, wine, type = "prob")[,2], wine$quality)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf)
+```
+
+
+## What to Use?
++ Remember I said that machine learning is a two stages optimization 
++ These classifiers are 'Mathematically Optimized'
++ How to choose one is up to your goal.  
++ Choice or make you only metric to pick the classifer you will be using in future. 
+
+## Example
++ You are designing a finger print id entrance system for a bank's vault...
++ Your system's task is to allow those authorized person to enter and reject all other peoples
++ accuracy is useless, becauese you only have a handful person that can enter
++ precision should better be as high as possible, otherwise....
++ we can relax requirement on recall really, since they are employees...
+
+## Next time
++ Ensemble Models
+    - randomForest
+    - Boosting Trees
++ Dimension Reduction
+    - PCA

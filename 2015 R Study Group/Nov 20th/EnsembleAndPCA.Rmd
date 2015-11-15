@@ -1,0 +1,27 @@
+---
+title: "R Study Group Meet Up"
+subtitle: "Ensemble Methods, Dimension Reduction"
+author: "Ryan Zhang"
+institute: "Bentley University"
+date: "November 20, 2015"
+fontsize: 8pt
+output:
+  beamer_presentation:
+    colortheme: lily
+    fig_height: 4
+    fig_width: 8
+    fonttheme: professionalfonts
+    highlight: tango
+    theme: Berlin
+---
+
+# Classifiers We Covered Now
+1. Logistic Regression 
+2. Decision Trees 
+3. Support Vector Machine   
+  
+In addition to add these to your resume(please do that)  
+what can we do about them? 
+Would the combination of different classifiers give better result?
+
+

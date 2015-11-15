@@ -1,0 +1,9 @@
+base
+ggplot2
+ggthemes
+gridExtra
+rpart
+rpart.plot
+lattice
+caret
+e1071
