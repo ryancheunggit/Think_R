@@ -1,6 +1,6 @@
 ---
-title: "R Study Group Meet Up"
-subtitle: "Ensemble Methods, Dimension Reduction"
+title: "Bias Variance Trade-off, Ensemble Methods, Dimension Reduction"
+subtitle: "R Study Group Meet Up"
 author: "Ryan Zhang"
 institute: "Bentley University"
 date: "November 20, 2015"
@@ -15,13 +15,397 @@ output:
     theme: Berlin
 ---
 
-# Classifiers We Covered Now
+```{r, echo = F}
+setwd("D:/GithubRepos/Think_R/2015 R Study Group/Nov 20th")
+```
+
+# Bias and Variance Trade-off
+Say we have build a regression function $\hat{y} = \hat{g}(x)$   
+   
+Mean squared error in regression problem can be decomposed into three parts:
+$$MSE = Var(\hat{g}(X)) + {Bias(\hat{g}(X))}^2 + Var(\epsilon)$$
+See Prof. Wang's slides      
+    
++ Variance: How $\hat{g}(X)$ would change if we use a different training data     
++ Bias: Limitation of the family of model(H) we choose   
+    
+We want a model with low bias and variance at the same time, but generally, increase one will cause the other to decrease.   
+
+# Interpretation of Bias and Variance
+![bias and variance trade-off](biasVariance.png)
+
+# Model Complexity and Bias Variance Trade-off
+Say if we have a first order multiple regression model, and a third order polynomial regression model both fitted using the same set of features    
+
+$$g_1(X) = \hat{\beta_0} + \Sigma_{i = 1}^{p} \hat{\beta_i}x_i$$
+$$g_2(X) = \hat{\beta_0} + \Sigma_{i = 1}^{p} \Sigma_{d = 1}^{3} \hat{\beta}_{i,d}x_i^d$$
+
+Which model would you expect to have higher bias? __________________   
+   
+Which model would you expect to have higher variance? _______________    
+    
+Which model would you expect to be more generalizable? ______________     
+     
+Generally, as the model complexity goes up, bias will decrease whereas variance will increase    
+   
+# Why We Use CV to Pick Hyper Parameters?  
+
+Remember the $\lambda$ in Lasso, $cp$ in Decision Trees or $Kernel$ in Support Vector Machine?     
+     
+What does the hyper parameter of a model control? _____________
+      
+Tuning the value for hyper parameter is equalvent to balance between ___________ and ___________
+    
+# Classifiers We Covered Now    
 1. Logistic Regression 
 2. Decision Trees 
 3. Support Vector Machine   
   
-In addition to add these to your resume(please do that)  
-what can we do about them? 
+In addition to add them to your resume(please do that)     
+    
+What can we do about them?    
+     
 Would the combination of different classifiers give better result?
 
+# Many heads are better than one
+
+# Example Data  
+Tired of red wine? Drinking white wine this time...
+```{r, echo = F}
+wine <- read.csv("wineQualityWhites.csv")
+wine$X <- NULL
+wine$quality <- as.factor(ifelse(wine$quality >= 7,1,0))
+str(wine)
+```
+
+# Holdout 30% Data as Test Set
+In this simple validation approach, we train classifiers on 70% of our data, and evaluate the performance of classifiers using the remaining 30% data  
+  
+If we simply test our classifiers on the 70% training data, the measurement will be _____________
+```{r}
+library(caTools)
+set.seed(0306)
+split <- sample.split(wine$qualit,  SplitRatio = 0.7)
+train <- wine[split,]
+test <- wine[!split,]
+c(nrow(train),nrow(test))
+```
+
+# Build Three Classifiers   
+Should be easy code now...         
+
+We will skip hyper parameter tuning for now   
+  
+However you are welcome to try tuning them as an exercise    
+```{r}
+library(rpart);library(e1071);
+rp <- rpart(quality~., data = train, control = rpart.control(cp = 0.01))
+SVM <- svm(quality~., data = train, kernel ="polynomial",probability=T)
+logReg <- glm(quality~., data = train, family = "binomial")
+rp.pred <- predict(rp,test,type = "class")
+SVM.pred <- predict(SVM, test)
+logReg.pred <- predict(logReg, test, type = "response") >= 0.5
+```
+
+# Test Set Accuracies
+```{r}
+accuracy <- function(pred, true){
+    t <- table(pred, true)
+    return(round(sum(diag(t))/sum(t),4))}
+c(accuracy(rp.pred, test$quality),accuracy(SVM.pred, test$quality),
+accuracy(logReg.pred, test$quality))
+```
+Remember that accuracy is not always a good metrics, especially when the classes are not even.   
+  
+The good wine here is `r round(table(wine$quality)[2]/nrow(wine),4)*100`%.   
+   
+If we build a naive classifier which always predict a wine is bad, the accuracy would be about _______  
+
+# What If We Let the Classifers Vote?
+If two out of three classifiers says that the wine is good, we classify it as good wine     
+    
+Why we always need multiple judges to make decisions?     
+    
+To reduce ____________
+```{r}
+Ensemble.pred <- as.numeric(rp.pred) + as.numeric(SVM.pred) + 
+                 as.numeric(logReg.pred) - 2
+Ensemble.pred <- ifelse(Ensemble.pred >= 2,1,0)
+accuracy(Ensemble.pred, test$quality)
+```
+
+Again, the accuracy score may not make any sense.   
+  
+Refer to my slides last time, we can look at precision, __________ , tpr, _____ , f1 , _____ , etc.  
+  
+Many competitions hosted on Kaggle look at the AUC score, which is the area under the ROC curve.    
+
+# Look at AUC for Three Classifiers    
+Notice that, in order to generate the ROC curve, we need a ______________ output, rather than _______    
+```{r, message=F, warning=F}
+library(ROCR)
+rp.pred <- prediction(predict(rp,test,type = "prob")[,2], test$quality)
+SVM.pred <- prediction(attr(predict(SVM, test, probability = T),
+                       "probabilities")[,2], test$quality)
+logReg.pred <- prediction(predict(logReg, test, type = "response"),
+                        test$quality)
+rp.auc <- unlist(slot(performance(rp.pred, "auc"),"y.values"))
+SVM.auc <- unlist(slot(performance(SVM.pred, "auc"),"y.values"))
+logReg.auc <- unlist(slot(performance(logReg.pred, "auc"),"y.values"))
+c(rp.auc, SVM.auc, logReg.auc)
+```
+
+# What is the AUC for Ensemble?
+What is we take the ___________ of the probabilities predicted by three classifiers?    
+   
+What would the AUC be if we use that as our final estimate?     
+```{r}
+Ensemble.prob <- (predict(rp,test,type = "prob")[,2] + 
+        attr(predict(SVM, test, probability = T), "probabilities")[,2] + 
+        predict(logReg, test, type = "response"))/3
+Ensemble.pred <- prediction(Ensemble.prob, test$quality)
+unlist(slot(performance(Ensemble.pred, "auc"),"y.values"))
+```
+Ensemble of models different in nature will tend to decrease ____________  
+
+# Random Forest
+Combine many (usually thousands of) decision trees models to form a forest    
+
+Remember we just said that the models should be different in nature but the tree building process is pretty deterministic     
+    
+A bit review won't hurt...   
+   
+At each node in the tree, we find the best split by searching through all features and find one feature that supports a cutoff point such that the _______________ can be maximized    
+   
+How can we build thousands of trees and the same time make them quite different from each other by introducing _______________?     
+
+# The Randomness in Random Forest
+Introduce randomness in data:   
+  
+Repeatedly draw random samples of the same size as the training set (with replace) from our training set, and fit decision trees on each of the _____________ sample  
+  
+Introduce randomness in tree building method:  
+  
+At each node in the tree, only randomly selected $m$ features can be considered to find a split  
+
+These changes will results `decorrelated` trees, thus by averaging these trees will reduce variance     
+
+# Growing a Random Forest  
+```{r, message = F, warning = F, cache = T}
+library(randomForest)
+set.seed(0306)
+t0 <- Sys.time()
+rf <- randomForest(quality~., data = train, ntree = 5000, importance = T)
+print(Sys.time() - t0)
+rf.pred <- prediction(predict(rf, test, type = "prob")[,2], test$quality)
+unlist(slot(performance(rf.pred, "auc"),"y.values"))
+```
+Amazing improvement, are we over optimized?
+
+# Feature Importance From Random Forest
+Decision Trees have very good interpretation, but Random Forest have none    
+   
+But we gain an importance measure of features    
+  
+Look at all the trees we built in the forest, scan through all the splits, aggregate the information gains/ decreases in Gini index resulted from split using a perticular feature  
+  
+Repeat that for all the features  
+
+# Feature Importance In Our Wine Case
+We covered `dplyr` and `ggplot`, use them to plot the feature importance 
+  
+Hope you are still familiar with their syntax....   
+```{r, eval = F}
+library(ggplot2);library(ggthemes);library(dplyr)
+theme_set(theme_minimal(12))
+df <- cbind.data.frame(featureName = names(wine)[-12], 
+            MeanDecreaseGini = rf$importance[,"MeanDecreaseGini"])
+df <- arrange(df, desc(MeanDecreaseGini))
+df$featureName <- factor(df$featureName, 
+                         levels = as.character(df$featureName))
+ggplot(data = df, aes(x = featureName, y = MeanDecreaseGini)) + 
+    geom_bar(stat = "identity", fill = "cyan3", width = 0.618) + 
+    coord_flip() +
+    ggtitle("Feature Importance From Random Forest")
+```
+
+# Plotting Feature Importance
+```{r, warning=F, message=F, echo = F}
+library(ggplot2);library(ggthemes);library(dplyr)
+theme_set(theme_minimal(12))
+df <- cbind.data.frame(featureName = names(wine)[-12], 
+            MeanDecreaseGini = rf$importance[,"MeanDecreaseGini"])
+df <- arrange(df, desc(MeanDecreaseGini))
+df$featureName <- factor(df$featureName, 
+                         levels = as.character(df$featureName))
+ggplot(data = df, aes(x = featureName, y = MeanDecreaseGini)) + 
+    geom_bar(stat = "identity", fill = "cyan3", width = 0.618) + 
+    coord_flip() +
+    ggtitle("Feature Importance From Random Forest")
+```
+
+# Tuning Hyper Parameters for Random Forest
+Most important parameter is `mtry`    
+```{r, echo = F, warning = F, message = F}
+library(randomForest)
+```
+```{r, cache = T}
+set.seed(1106)
+t0 <- Sys.time()
+rf.model <- tune.randomForest(x = train[,1:11], y = train[,12], 
+                   mtry = c(1:5), ntree = 5000,
+    tunecontrol = tune.control(sampling = "cross", cross = 5))
+print(Sys.time() - t0)
+print(rf.model$best.parameters)
+```
+
+# What's the NEW Test Set AUC? 
+It should be higher   
+
+```{r, cache = T}
+set.seed(0306)
+t0 <- Sys.time()
+rf <- randomForest(quality~., data = train, mtry = 1, ntree = 5000)
+print(Sys.time() - t0)
+rf.pred <- prediction(predict(rf, test, type = "prob")[,2], test$quality)
+unlist(slot(performance(rf.pred, "auc"),"y.values"))
+```
+
+# Boosting Trees
+For a Random Forest model, we grow 5000 trees independently, we can ask 5000 computers, each grow a tree for us and then taking the average       
+
+Boosting is a method that we grown trees sequentially, each tree is grown using information from previously grown trees    
+
+The trees are simpler and they are fitted with special attention to the errors of the previous iteration. After the iteration the new model is aggregated into the model with a learning/shrinkage parameter      
+
+That is, each step we try to slowly improve on the places where it did not do well previously  
+
+# Tuning a AdaBoost Model
+It is time consuming, however it is right thing to do  
+```{r, warning=F, message = F, cache = T}
+library(ada);library(caret)
+t0 <- Sys.time()
+tuningParams <- expand.grid(iter = c(100,200),
+                            nu = c(0.01,0.02,0.03),
+                            maxdepth = 3:4)
+trainControl <- trainControl(method = "cv", number = 5)
+adaboost <- train(x = train[,1:11], y = train[,12], method = "ada",
+                         trControl = trainControl, 
+                         tuneGrid = tuningParams)
+print(Sys.time() - t0)
+```
+
+# Tuning a AdaBoost Model
+```{r}
+adaboost$results
+```
+
+# Test Set AUC?
+Note these parameters are not well tuned, I guessed them    
+   
+You should try and figure out them by cross-validation      
+   
+I just don't have that much time this week...    
+```{r, echo = F}
+library(ada)
+```
+
+```{r, cache = T}
+set.seed(0306)
+adaboost <- ada(x = train[,1:11], y = train[,12], loss = "ada",
+                iter = 5000, nu = 0.05,  rpart.control(maxdepth = 3))
+ada.pred <- prediction(predict(adaboost, test[,1:11], type = "prob")[,2],
+                       test$quality)
+unlist(slot(performance(ada.pred, "auc"),"y.values"))
+```
+
+# XGBoost
+I am not very familiar with tuning the Boosting Trees, find out more else where if you are interested   
+    
+There is a trending implementation of Boosted Models by Chinese(proudly) called  [XGBoost](https://github.com/dmlc/xgboost)   
+
+I have tried it to fit models to datasets over 10GB in size and the training time is within minutes, super fast   
+
+# Dimension Reduction   
+Thinking about feature selection, what we do is to _____________ the dimension of the feature space by ___________________ features
+   
+Rather than doing that, we can **summarize** the high dimension features into lower dimension representations   
+   
+It is like compress a huge blue-ray movie into smaller format in order to watch it on your phone. Of course, there will be loss in information during the process.  
+   
+But the things got lost during the process are often the tiny details that does not affect you understanding what's going on in the movie    
+  
+You may miss a freckle, but not the entire face   
+
+# Why We Do This Compression?  
+1. Reduce highly correlated features into fewer ones
+2. Otherwise we can't visualize data beyound 3d
+    
+I am not going into the details of the math behind this, it is just linear algebra and optimization which you have had enough already(ever heard about eigen vectors and eigen values?)           
+  
+The gist is that, we want to find a way to summarize our high dimensional data set in to a lower dimensional representation and the same time maximizing the variations remained in the data set   
+
+# Principal Component Analysis  
+There are many ways to do dimension reduction, PCA is just one of them  
+  
+What PCA does is to find a set of orthonormal directions along which the original data are highly variable   
+    
+Notice this process is ________________ , since it does not make use of the information related to the labels     
+  
+We are going to plot using the first two principal components   
+```{r,warning=F,message=F}
+pcawine <- prcomp(wine[,1:11], scale = T)
+df <- cbind.data.frame(pc1 = pcawine$x[,1], pc2 = pcawine$x[,2], 
+                       quality = wine$quality)
+```
+
+# Plot with First Twon Principal Components
+```{r, echo = F, message=F,warning=F}
+ggplot(data = df, aes(x = pc1, y = pc2)) +
+    geom_point(aes(color = quality), size = 3, alpha = 0.5) + 
+    scale_color_brewer(palette = "Set1") +
+    xlab("first principal component") +
+    ylab("second principal component") + 
+    xlim(-4,4) + 
+    ylim(-4,4)
+```
+
+# The Notion of Percentage of Variance Explained
+These are just ratios of the variances along principal components and total variance within the data set     
+```{r, warning=F,message=F}
+pve = pcawine$sdev^2/sum(pcawine$sdev^2)
+plot(pve, pch = 19, type = "both")
+```
+
+# Using Principal Components as Predictors
+Let's use the first 2 principal components to build logistic regression model
+```{r}
+pctrain <- cbind.data.frame( pcawine$x[split,1:2],quality = train$quality)
+pctest <- cbind.data.frame(pcawine$x[!split,1:2], quality = test$quality)
+pclogReg <- glm(quality~.,data = pctrain, family = "binomial")
+pclogReg.pred <- prediction(predict(pclogReg, pctest, type = "response"),
+                        test$quality)
+unlist(slot(performance(pclogReg.pred, "auc"),"y.values"))
+```
+
+Don't be superised to see such low score     
+   
+We lost 60% variation in the data when using only two principal components    
+
+# Caveat
+Although it looks similar to feature selection in the sense that they both reduce the dimensionality of the problem   
+    
+But it is not the thing you do when fighting _______________ , since the process is _____________    
+   
+Do this when the data set is too large for you, or when the algorithm runs forever without give you a model    
+   
+The Principal Components are hard to interpret, and there is a CUR decomposition method which does similar job as PCA but with some interpretation      
+   
+Go read more about it if you are interested       
+
+# Bad News or Good News?   
+
+NO MEET UP NEXT WEEK, ENJOY YOUR HOLIDAY~  
+
+The week after we will cover a Kaggle case, which will be the last meet up this semester       
 
