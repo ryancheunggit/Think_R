@@ -4,6 +4,7 @@
 #install.packages("rpart.plot")
 #install.packages("caTools")
 #install.packages("ggplot2")
+#install.packages("ROCR")    
 
 # Read in data
 train <- read.csv("train.csv")
@@ -149,16 +150,20 @@ write.csv(submit, "startSubmission.csv", row.names = F)
 #
 # =================================================================
 
-cp.range <- 1:100 * 0.0005
-maxdepth.range <- 3:6 
+# using simple validation set approach go select model   
 
+# set up search values
+cp.range <- 1:50*0.001
+maxdepth.range <- 3:6
+# set up empty vector to store validation results/parameters
 accuracy <- cp.col <- depth.col <- vector()
 
+# nested loop to try possible combinations of parameter values
 for (i in 1:length(cp.range)){
     for (j in 1:length(maxdepth.range)){
-        model <- rpart(Survived ~ Age + Sex + Pclass + SibSp + Parch + Fare +
-                           Embarked, data = training, 
-                       control = rpart.control(cp = cp.range[i],
+        model <- rpart(Survived ~ Age + Sex + Pclass + SibSp + Parch + Fare + Embarked, 
+                       data = training, 
+                       control = rpart.control(cp = cp.range[i], 
                                                maxdepth = maxdepth.range[j]),
                        method = "class")
         pred <- predict(model, validation, type = "class")
@@ -169,36 +174,41 @@ for (i in 1:length(cp.range)){
     }
 }
 
+# plot the validation results
 pdf <- cbind.data.frame(cp.col, depth.col, accuracy)
-
 pdf$depth.col <- as.factor(pdf$depth.col)
-
 library(ggplot2)
+ggplot(data = pdf, aes(x = cp.col, y = accuracy, color = depth.col)) + geom_line(size = 2)
 
-ggplot(data = pdf, aes(x = cp.col, y = accuracy, color = depth.col)) +
-    geom_line(size = 2)
-
-## final model
-tree <- rpart(Survived ~ Age + Sex + Pclass + SibSp + Parch + Fare + 
-                  Embarked, data = train,
+# fit the tree using optimized hyper-parameters
+tree <- rpart(Survived ~ Age + Sex + Pclass + SibSp + Parch + Fare + Embarked, 
+              data = train, 
               control = rpart.control(cp = 0.005, maxdepth = 4),
               method = "class")
 
-library(rpart.plot)
+# plot the tree
 prp(tree)
 
+# using train(sample) data to see classifiaction results
 library(ROCR)
 
 train.pred <- predict(tree, train)[,1]
 
 pred <- prediction(train.pred, train$Survived)
 
+table(train.pred >= 0.5, train$Survived)[c("TRUE", "FALSE"),]
+
 pref <- performance(pred, "tpr", "fpr")
 
 plot(pref)
+abline(0,1,lty = 2)
 
-performance(pred, "auc")@y.values
+performance(pred, "auc")
 
+performance(pred, "f")
 
-prp(tree)
-
+# make prediction on test dataset and create submission file
+prediction <- predict(tree, test, type = "class")
+submit <- cbind.data.frame(test$PassengerId, prediction)
+names(submit) <- c("PassengerId", "Survived")
+write.csv(submit, "tunedTree.csv", row.names = F)

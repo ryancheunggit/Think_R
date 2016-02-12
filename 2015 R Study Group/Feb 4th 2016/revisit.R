@@ -1,142 +1,148 @@
-#install.packages("dplyr")
-#install.packages("reshape2")
-#install.packages("rpart")
-#install.packages("rpart.plot")
-#install.packages("caTools")
+# Ryan Zhang
+# Feb 12 2016
+# zhang_ren@bentley.edu
 
-# Read in data
+
+# install.packages("caret")
+# install.packages("randomForest")
+# install.packages("ROCR")
+
+# 0. load in data
 train <- read.csv("train.csv", stringsAsFactors = F, na.strings = c("NA",""))
 test <- read.csv("test.csv", stringsAsFactors = F, na.strings = c("NA",""))
 
-# processing the data
+# 1. processing the data
 ntrain <- nrow(train)
 ntest <- nrow(test)
 label <- train$Survived
+label <- factor(label, levels = c(1,0))
 train$Survived <- NULL
 full <- rbind.data.frame(train, test)
 
-train$Embarked <- factor(train$Embarked)
-test$Embarked <- factor(test$Embarked)
-train$Pclass <- factor(train$Pclass)
-test$Pclass <- factor(test$Pclass)
-train$Sex <- factor(train$Sex)
-test$Sex <- factor(test$Sex)
-train$Survived <- factor(train$Survived, levels = c(1,0))
+apply(is.na(full), 2, sum)
 
-# Look at the structure again
-str(train)
-str(test)
+## filling missing values
 
-# some exploratory analysis   
+## Embarked, I just randomly decided to do so
+full[is.na(full$Embarked),]$Embarked <- "S"
+str(full$Embarked)
 
-# Check the label 
-round(table(train$Survived)/nrow(train),4)*100
+## Fare, just one missing, using mean value to fill it
+summary(full$Fare)
+full[is.na(full$Fare),]$Fare <- 33.300
 
-# lady first?
-round(table(train$Sex,train$Survived)/rowSums(table(train$Sex,train$Survived)),4)*100
+## Create a new feature Title, we are doing a little bit natural language processing here
+full$Name
 
-# save the children?
-round(table(train$Age < 18, train$Survived)/rowSums(table(train$Age < 18, train$Survived)),4)*100
+strsplit(full$Name[1], '[,.]')
 
-# by gender and child summary
-library(dplyr)
-library(reshape2)
-train$child <- train$Age < 18
-by_gender_child <- group_by(train, Sex, child)
-summary_by_gender_child <- summarise(by_gender_child, 
-                                     surviveRate = round(sum(as.numeric(as.character(Survived)))/n(),2) * 100)
-melted_summary <- melt(summary_by_gender_child, id.vars = c("Sex", "child"))
-casted_summary <- dcast(melted_summary, Sex~child)
-names(casted_summary)[2:4] <- c("Adult", "Child", "Unknown")
-casted_summary
-train$child <- NULL
+full$Title<-sapply(full$Name, function(x) strsplit(x,'[.,]')[[1]][2])
 
-barplot(as.matrix(casted_summary[,2:4]), beside = T, col = c("red", "blue"))
-legend("topright", c("female", "male"), pch = 15, col = c("red", "blue"))
+full$Title<-gsub(' ','',full$Title)
 
-# by gender and class
-by_gender_class <- group_by(train, Sex, Pclass)
-summary_by_gender_class <- summarise(by_gender_class, 
-                                     surviveRate = round(sum(as.numeric(as.character(Survived)))/n(),2) * 100)
-melted_summary <- melt(summary_by_gender_class, id.vars = c("Sex", "Pclass"))
-casted_summary <- dcast(melted_summary, Sex~Pclass)
-names(casted_summary)[2:4] <- c("Upper", "Middle", "Lower")
-casted_summary
+table(full$Title)
 
-barplot(as.matrix(casted_summary[,2:4]), beside = T, col = c("red", "blue"))
-legend("topright", c("female", "male"), pch = 15, col = c("red", "blue"))
+full$Title[full$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Sir'
+full$Title[full$Title %in% c('Dona', 'Lady', 'the Countess', 'Jonkheer', 'theCountess')] <- 'Lady'
+full$Title[full$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Sir'
+full$Title[full$Title %in% c("Col")] <- "Mr"
+full$Title[full$Title %in% c("Mlle")] <- "Miss"
+full$Title[full$Title %in% c("Mme")] <- "Mrs"
 
-# =================================================================
-# 
-# Do some exploratory analysis on your own, see what you can find
-#
-# =================================================================
 
-# decision tree model
+table(full$Title)
+## Age, use a regression tree to predict missing ages. 
 library(rpart)
+rp <- rpart(Age~Pclass + Title + Sex + SibSp + Parch + Fare + Embarked, data = full[!is.na(full$Age),])
+
+full[is.na(full$Age),]$Age <- predict(rp, full[is.na(full$Age),])
+
+## Cabin, too hard to impute, we will drop it
+## Ticket is also quite hard to utilize, drop it as well
+full$Cabin <- NULL
+full$Ticket <- NULL
+
+## Create a new variable family size
+full$FamilySize <- full$SibSp + full$Parch + 1
+
+## Create a new variable indicating child or not
+full$Child <- ifelse(full$Age < 18, 1, 0)
+
+full$Mother <- ifelse(full$Age > 18 & full$Title != 'Miss' & full$Sex == 'female', 1, 0)
+
+## convert variable types
+full$Sex <- as.factor(full$Sex)
+full$Embarked <- as.factor(full$Embarked)
+full$Title <- as.factor(full$Title)
+full$Child <- as.factor(full$Child)
+full$Mother <- as.factor(full$Mother)
+
+## split the full datafram back into seperate train and test sets
+train <- cbind.data.frame(full[1:ntrain,], "Survived" = label)
+test <- full[((ntrain + 1):nrow(full)),]
+
+## Cross validation
+library(caret)
+set.seed(0306)
+tuningParams <- expand.grid(.cp = c(0.00001,0.00005,0.0001,0.0005,0.001,0.005))
+trainControl <- trainControl(method = "cv", number = 10)
+rp.train <- train(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + 
+                      FamilySize + Child + Mother, data = train, method = "rpart",
+                  trControl = trainControl, tuneGrid = tuningParams)
+
+plot(rp.train)
+
+## Fit model and Analysis metrics
+
+# fit the tree using optimized hyper-parameters
+tree <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + 
+                  FamilySize + Child + Mother, data = train, 
+              control = rpart.control(cp = 0.001),
+              method = "class")
+
+# plot the tree
 library(rpart.plot)
-tree <- rpart(Survived ~ Age + Sex + Pclass, 
-              data = train, 
-              control = rpart.control(cp = 0.01, maxdepth = 3),
-              method = "class")
 prp(tree)
 
-# validation approach to test your model
-library(caTools)
-set.seed(1106)
-split <- sample.split(train$Survived, 0.7)
-training <- train[split == T, ]
-validation <- train[split == F, ]
-nrow(training)
-nrow(validation)
-tree <- rpart(Survived ~ Age + Sex + Pclass, 
-              data = training, 
-              control = rpart.control(cp = 0.01, maxdepth = 3),
-              method = "class")
+# using train(sample) data to see classifiaction results
+library(ROCR)
 
-prp(tree)
+train.pred <- predict(tree, train)[,1]
 
-pred.train <- predict(tree, training, type = "class")
-table(pred.train, training$Survived)
-(367+133)/nrow(training)
-pred.valid <- predict(tree, validation, type = "class")
-table(pred.valid, validation$Survived)
-(155+51)/nrow(validation)
+pred <- prediction(train.pred, train$Survived)
 
-# try some different hyper parameter values
-tree <- rpart(Survived ~ Age + Sex + Pclass, 
-              data = training, 
-              control = rpart.control(cp = 0.001, maxdepth = 5),
-              method = "class")
+table(train.pred >= 0.5, train$Survived)[c("TRUE", "FALSE"),]
 
-prp(tree)
+pref <- performance(pred, "tpr", "fpr")
 
-pred.train <- predict(tree, training, type = "class")
-table(pred.train, training$Survived)
-(339+182)/nrow(training)
-pred.valid <- predict(tree, validation, type = "class")
-table(pred.valid, validation$Survived)
-(148+68)/nrow(validation)
+plot(pref)
+abline(0,1,lty = 2)
 
-# =================================================================
-# 
-# Try alter the formula, cp and maxdepth to see by yourself
-#
-# =================================================================
+performance(pred, "auc")@y.values
 
-# make prediction on test set for submiting on Kaggle  
-tree <- rpart(Survived ~ Age + Sex + Pclass, 
-              data = train, 
-              control = rpart.control(cp = 0.001, maxdepth = 5),
-              method = "class")
+which.max(performance(pred, "f")@y.values[[1]])
+performance(pred, "f")@x.values[[1]][10]
+
+## make prediction on test dataset and create submission file
+
 prediction <- predict(tree, test, type = "class")
+
 submit <- cbind.data.frame(test$PassengerId, prediction)
 names(submit) <- c("PassengerId", "Survived")
-write.csv(submit, "startSubmission.csv", row.names = F)
+write.csv(submit, "CVTreeWithNewFeaturesAndImpution.csv", row.names = F)
 
-# =================================================================
-# 
-# Change the above values to the best combinations you found and see 
-# your result after on Kaggle.
-#
-# =================================================================
+## random forest
+library(randomForest)
+x <- train[, c(1:2, 4:13)]
+y <- train$Survived
+tuneRF(x, y, mtryStart = 1, ntreeTry = 500, stepFactor = 2)
+
+rf <- randomForest(Survived~Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + 
+                       FamilySize + Child + Mother,
+                   data = train, mtry = 1, ntree = 500)
+
+prediction <- predict(rf, test)
+
+submit <- cbind.data.frame(test$PassengerId, prediction)
+names(submit) <- c("PassengerId", "Survived")
+write.csv(submit, "randomForest.csv", row.names = F)
