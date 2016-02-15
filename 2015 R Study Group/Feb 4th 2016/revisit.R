@@ -134,6 +134,7 @@ write.csv(submit, "CVTreeWithNewFeaturesAndImpution.csv", row.names = F)
 ## random forest
 library(randomForest)
 x <- train[, c(1:2, 4:13)]
+xt <- test[, c(1:2, 4:13)]
 y <- train$Survived
 tuneRF(x, y, mtryStart = 1, ntreeTry = 500, stepFactor = 2)
 
@@ -146,3 +147,36 @@ prediction <- predict(rf, test)
 submit <- cbind.data.frame(test$PassengerId, prediction)
 names(submit) <- c("PassengerId", "Survived")
 write.csv(submit, "randomForest.csv", row.names = F)
+
+
+## xgboost
+dfull <- full[,c(2,4:13)]
+dfull$Pclass <- as.factor(dfull$Pclass)
+
+d <- as.matrix(cbind(
+    model.matrix(~dfull$Pclass),
+    Sex = dfull$Sex,
+    Age = dfull$Age,
+    SibSp = dfull$SibSp,
+    Parch = dfull$Parch,
+    Fare = dfull$Fare,
+    model.matrix(~dfull$Embarked),
+    model.matrix(~dfull$Title),
+    FamilySize = dfull$FamilySize,
+    Child = dfull$Child,
+    Mother = dfull$Mother))
+
+dtrain <- d[1:ntrain, ]
+dtest <- d[((ntrain+1):nrow(d)),]
+
+library(xgboost)
+l <- as.numeric(as.character(y))
+dtrainM <- xgb.DMatrix(dtrain,label = l)
+cv <- xgb.cv(data = dtrainM, objective = "binary:logistic", nrounds = 150, nfold = 10, metrics = "error", maximize = F)
+m <- ceiling(which.min(cv$test.error.mean)*1.05)
+bst <- xgboost(data = dtrainM, objective = "binary:logistic", metrics = "error", nrounds = 9, verbose =  1)
+prediction <- ifelse(predict(bst, dtest) > 0.5, 1, 0) 
+submit <- cbind.data.frame(test$PassengerId, prediction)
+names(submit) <- c("PassengerId", "Survived")
+write.csv(submit, "xgboost.csv", row.names = F)
+
