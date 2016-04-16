@@ -25,10 +25,10 @@ apply(m, # matrix
 ## Utility Matrix: the ratings from a set of customers on a set of items
 
 ### some dummy data
-UtilityMatrix <- cbind.data.frame(Avatar = c(1, NA, 0.2, NA),
-                      LOTR1 = c(NA, 0.5, NA, 0.1),
-                      Matrix1 = c(0.2, NA, 1, NA),
-                      Pirates1 = c(NA, 0.3, NA, 0.4))
+UtilityMatrix <- cbind.data.frame(Avatar = c(1  , NA , 0.2, NA ),
+                                   LOTR1 = c(NA , 0.5, NA , 0.1),
+                                 Matrix1 = c(0.2, NA , 1  , NA ),
+                                Pirates1 = c(NA , 0.3, NA , 0.4))
 row.names(UtilityMatrix) <- c("Alice", "Bob", "Carol", "David")
 
 UtilityMatrix <- as.matrix(UtilityMatrix)
@@ -74,7 +74,7 @@ itemSimilarities <-
                 function(rowI){
                     return(cosSim(rowO, rowI))
                     }))
-        }))
+        })
 
 itemSimilarities
 UtilityMatrix
