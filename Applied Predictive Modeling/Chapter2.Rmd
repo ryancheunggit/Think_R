@@ -1,0 +1,43 @@
+---
+title: "Chapter2"
+author: "Ren"
+date: "April 26, 2016"
+output: html_document
+---
+
+# Chapter 2
+## 2.1 Case Study: Predicting Fuel Economy   
+Load library and data   
+```{r}
+library(AppliedPredictiveModeling)
+data(FuelEconomy)
+```
+
+Structure of the data set   
+```{r}
+str(cars2010)
+```
+
+Build a model FE~EngDispl ?      
+Want to build model on 2010cars and test on 2011cars     
+```{r}
+par(mfrow = c(1,2))
+plot(cars2010$EngDispl, cars2010$FE, pch = 19)
+plot(cars2011$EngDispl, cars2011$FE, pch = 19)
+par(mfrow = c(1,1))
+```
+
+Simple linear regression model    
+```{r}
+lm.model <- lm(cars2010$FE ~ cars2010$EngDispl)
+summary(lm.model)
+plot(cars2010$EngDispl, cars2010$FE, pch = 19)
+abline(lm.model, col = "red", lwd = 2)
+```
+
+Diagnose plot   
+```{r}
+plot(cars2010$FE, lm.model$fitted.values, pch = 19, ylim = c(10,70))
+abline(1,1, lty = 2)
+```
+
